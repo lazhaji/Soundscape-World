@@ -13,7 +13,7 @@ describe('application audio transport', () => {
     expect(factory).not.toHaveBeenCalled()
   })
 
-  it('resumes synchronously in a gesture and creates exactly one music/rain source', async () => {
+  it('resumes synchronously in a gesture and creates exactly one music/rain/train source', async () => {
     const { engine, factory, context, sources, buffers } = mockAudio()
     const operation = engine.startFromGesture()
     expect(context.resume).toHaveBeenCalledTimes(1)
@@ -22,7 +22,7 @@ describe('application audio transport', () => {
     await engine.startFromGesture()
     expect(factory).toHaveBeenCalledTimes(1)
     expect(buffers).toHaveBeenCalledTimes(1)
-    expect(sources).toHaveLength(2)
+    expect(sources).toHaveLength(3)
     sources.forEach((source) => { expect(source.start).toHaveBeenCalledTimes(1); expect(source.loop).toBe(true) })
     expect(engine.getSnapshot().status).toBe('playing')
   })
@@ -42,7 +42,7 @@ describe('application audio transport', () => {
     }
     expect(engine.getPlaybackSeconds()).toBe(40)
     expect(engine.getDiagnostics().sourceBuilds).toBe(1)
-    expect(sources).toHaveLength(2)
+    expect(sources).toHaveLength(3)
     sources.forEach((source) => { expect(source.start).toHaveBeenCalledTimes(1); expect(source.stop).not.toHaveBeenCalled() })
   })
 
@@ -55,7 +55,7 @@ describe('application audio transport', () => {
     expect(engine.getSnapshot().status).toBe('paused')
     await engine.startFromGesture(); advance(2)
     expect(engine.getPlaybackSeconds()).toBe(9)
-    expect(sources).toHaveLength(2)
+    expect(sources).toHaveLength(3)
     expect(engine.getDiagnostics().musicGain).toBe(1)
   })
 
@@ -100,7 +100,7 @@ describe('application audio transport', () => {
     expect(engine.getPlaybackSeconds()).toBe(4)
     engine.pause(); engine.pauseForBackground()
     expect(engine.getSnapshot().status).toBe('paused')
-    expect(sources).toHaveLength(2)
+    expect(sources).toHaveLength(3)
   })
 
   it('reports interruption and resumes existing sources after a gesture', async () => {
@@ -110,7 +110,7 @@ describe('application audio transport', () => {
     expect(engine.getSnapshot().status).toBe('interrupted')
     await engine.startFromGesture()
     expect(engine.getSnapshot().status).toBe('playing')
-    expect(sources).toHaveLength(2)
+    expect(sources).toHaveLength(3)
   })
 
   it('allows retry after browser permission rejection', async () => {
@@ -158,7 +158,7 @@ describe('application audio transport', () => {
     engine.pause()
     await engine.startFromGesture()
     resolve(); await oldOperation
-    expect(sources).toHaveLength(2)
+    expect(sources).toHaveLength(3)
     expect(engine.getSnapshot().status).toBe('playing')
   })
 
@@ -184,7 +184,7 @@ describe('application audio transport', () => {
     expect(engine.getSnapshot().status).toBe('playing')
   })
 
-  it('disposes two sources, all gains and context listeners exactly once', async () => {
+  it('disposes three sources, all gains and context listeners exactly once', async () => {
     const { engine, context, sources, gains, listeners } = mockAudio()
     await engine.startFromGesture(); await engine.dispose(); await engine.dispose()
     sources.forEach((source) => { expect(source.stop).toHaveBeenCalledTimes(1); expect(source.disconnect).toHaveBeenCalledTimes(1) })

@@ -160,7 +160,7 @@ tests/unit, tests/integration, tests/e2e
 
 ## 11. M0 实际落地（2026-10-09）
 
-> 以下是 M0 历史记录；当前实现以第 12 节 M1 为准。
+> 以下是 M0 历史记录；当前实现以第 13 节 M2 及源码为准。
 
 - React 19 + R3F 9 + Three.js + Drei；严格 TypeScript。源码只建立 `app/world/audio/ui`，没有提前建立后续业务状态、数据库或假界面。
 - `App -> ScenePreview -> lazy PlaceholderScene`：3D 模块延迟加载，DOM 音频面板独立可用。固定正交相机随容器尺寸调整缩放，点击底座只记录触点。无角色、开门、ZoneDetector 或相机旋转。
@@ -185,3 +185,18 @@ tests/unit, tests/integration, tests/e2e
 - 前台 Canvas 持续渲染用于行走/门/屋顶动画，隐藏时 `frameloop="never"`。DPR 仍限制 1–1.5。R3F 负责几何/材质销毁，手工事件监听均有清理；旧音频模块 HMR dispose 停止并断开节点。
 
 当前选择暂停整个 Context 以冻结两条音源的播放进度，依据 [AudioContext.suspend 的时间语义](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext/suspend)。真实移动浏览器的后台事件调度仍需真机验证。
+
+## 13. M2 实际落地（2026-10-09）
+
+用户本轮明确确认 M1 验收成功并授权 M2。第 11/12 节保留历史，以下为当前运行结构；前半文档的曲库、计时、档案、雷达、聊天和 PWA 仍属后续规划。
+
+- 主入口为 `App -> ImmersivePage -> WorldViewport -> lazy WorldScene`，`#/debug/m1` 为保留的 M1 验证页。Hash 切换不刷新页面；只挂载当前页面的一个 Canvas。音频引擎、JourneyController、StationSimulation 均由模块持有，不依赖弹窗或 Canvas 挂载寿命。
+- `JourneyController.ts` 独立可测试：`train -> mode_select -> arriving -> home_station -> train`。过场按有效前台帧推进 5 秒：1.6 秒开始开门、2.4 秒开始穿门、3.2 秒切到便利店并上摇、5 秒锁定 M1 约 45° 正交镜头。只在离散阶段变化时通知 React。拒绝乱序/重复确认；允许关闭弹窗、跳过过场和取消返回车厢。没有游离的过场 setTimeout。
+- `TrainModel.tsx` 为原创程序化车厢：门、座椅、灯带、窗框、窗外建筑；速度递减驱动窗外运动和轻晃，车门平移，第一人称相机穿门。进入便利店时 `StationSimulation.arrive()` 让微缩角色从底座右侧自动走到店外落脚点。两场景为独立构图，不声称是连续大世界。
+- `WorldScene` 保留一个 WebGL renderer；切换 Three 子树由 R3F 释放材质/几何。进入便利店复用 `StationContents`，过场期间阻止地面点选，过场结束仍是原坐标寻路/判区链路。重试只重建视觉，保留旅程、位置和音频；页面隐藏暂停视觉推进及声音，回前台手势恢复声音。
+- `WorldViewport` 显示真实模块加载/3D 初始化阶段，12 秒后显示失败与重试；模块导入错误提供整页重载。启程和静音选择不依赖加载成功；停在过场时仍可跳过或返回车厢。无虚构百分比。
+- `ModeDialog` 使用原生 modal dialog，原生焦点约束、Escape 关闭与焦点恢复，radio 选择模式/心情，独立 DND switch。CSS 毛玻璃、内高光、胶囊按钮和短形变；小屏/横屏弹窗可内部滚动，支持 safe-area 和 reduced-motion。减少动态效果关闭列车晃动/景物流动及大幅运镜，仍能自动到站。
+- `features/modes.ts` 为唯一模式契约与纯策略：模式与心情分开；现有《雨灯》只适用 focus/relax/free，sleep 无候选而退回雨声；tired/anxious 的模式增益为 0.65，其余为 1。DND 不改变音乐。`canUseSocial(settings, radarEnabled)` 要求 relax/free、DND 明确为 false、主动雷达开关为 true；当前没有雷达/聊天动作或假入口，M5/M6 必须复用此权限。
+- 音频现为一个 Context、三个持久循环源（music/rain/train），无重复主音乐。新增 4 秒原创列车低频底噪、trainZone/trainMotor，车内空间值 `(music 0, rain 0, train 1)`，车外 train 为 0；减速时 trainMotor 从 0.5 用 1.6 秒降至 0.08。musicZone -> musicMode -> musicUser -> master；用户音量、模式策略、空间增益彼此独立。改模式、往返和打开 UI 不 start/stop/seek 音源。暂停仍 suspend 整个 Context；不保证系统后台或锁屏持续播放。
+- `db/settings.ts` 使用原生 IndexedDB `soundscape-db` version 1，仅创建 `settings` store，`mode` key 只保存已确认的 mode/mood/doNotDisturb。读写以事务完成为准，结构白名单校验，2.5 秒超时/blocked/权限失败可见提示且允许继续；迟到读取不覆盖用户已开始选择的内容。没有 localStorage 镜像、统计或聊天存储。M4 接入 Dexie 时须兼容/迁移这份现有数据库，不可清库重建。
+- 仍不新增状态库、Motion、数据库依赖或外部素材；依赖和 lockfile 未修改。M3 完整推荐/播放器/计时、M4 档案、M5–M7 后续功能未开始。

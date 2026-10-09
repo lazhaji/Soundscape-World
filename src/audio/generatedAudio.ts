@@ -2,7 +2,7 @@ import { fillWhiteNoise } from './noise'
 
 export const MUSIC_DURATION = 32
 export const GENERATED_SAMPLE_RATE = 22050
-export interface SoundBuffers { music: AudioBuffer; rain: AudioBuffer }
+export interface SoundBuffers { music: AudioBuffer; rain: AudioBuffer; train: AudioBuffer }
 
 /** Original test composition: four slow chords with soft sine plucks, not a recording. */
 export function fillDemoMusic(samples: Float32Array, sampleRate: number): void {
@@ -45,5 +45,16 @@ export function createGeneratedAudio(context: AudioContext): SoundBuffers {
   fillDemoMusic(music.getChannelData(0), GENERATED_SAMPLE_RATE)
   const rain = context.createBuffer(1, 8 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
   fillRain(rain.getChannelData(0), GENERATED_SAMPLE_RATE)
-  return { music, rain }
+  const train = context.createBuffer(1, 4 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
+  fillTrain(train.getChannelData(0), GENERATED_SAMPLE_RATE)
+  return { music, rain, train }
+}
+
+/** Original low-level rolling hum; integer-period harmonics make the loop continuous. */
+export function fillTrain(samples: Float32Array, sampleRate: number): void {
+  for (let index = 0; index < samples.length; index++) {
+    const time = index / sampleRate
+    const rolling = 0.8 + 0.2 * Math.cos(2 * Math.PI * 1.5 * time)
+    samples[index] = rolling * (0.07 * Math.sin(2 * Math.PI * 55 * time) + 0.025 * Math.sin(2 * Math.PI * 110 * time) + 0.009 * Math.sin(2 * Math.PI * 173 * time))
+  }
 }

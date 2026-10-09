@@ -18,7 +18,7 @@ export function mockAudio() {
     createBufferSource: vi.fn(() => { const source = makeSource(); sources.push(source); return source }),
   }
   const factory = vi.fn(() => context as unknown as AudioContext)
-  const buffers = vi.fn(() => ({ music: { duration: 32 }, rain: { duration: 8 } }) as SoundBuffers)
+  const buffers = vi.fn(() => ({ music: { duration: 32 }, rain: { duration: 8 }, train: { duration: 4 } }) as SoundBuffers)
   const advance = (seconds: number) => { if (context.state === 'running') context.currentTime += seconds }
   return { context, sources, gains, listeners, factory, buffers, advance, engine: new AudioEngine(factory, buffers) }
 }

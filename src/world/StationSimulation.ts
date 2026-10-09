@@ -29,6 +29,14 @@ export class StationSimulation {
     return true
   }
 
+  arrive(): void {
+    this.position = { x: 3.1, z: 2.6 }
+    this.path = []
+    this.onZone('outside')
+    this.publish({ zone: 'outside', moving: false, destination: null, message: '已下车，走向便利店前的灯光' })
+    this.moveTo(STATION.outside)
+  }
+
   step(delta: number): void {
     if (!this.path.length) return
     const old = this.position

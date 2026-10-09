@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { fillDemoMusic, fillRain, MUSIC_DURATION } from '../../src/audio/generatedAudio'
+import { fillDemoMusic, fillRain, fillTrain, MUSIC_DURATION } from '../../src/audio/generatedAudio'
 
 describe('original generated audio buffers', () => {
+  it('generates a quiet, finite train hum with a continuous loop boundary', () => {
+    const rate = 8000, samples = new Float32Array(rate * 4)
+    fillTrain(samples, rate)
+    const rms = Math.sqrt(samples.reduce((sum, sample) => sum + sample * sample, 0) / samples.length)
+    expect(rms).toBeGreaterThan(0.02)
+    expect(rms).toBeLessThan(0.06)
+    expect(samples.every((sample) => Number.isFinite(sample) && Math.abs(sample) < 0.12)).toBe(true)
+    expect(Math.abs(samples[0]! - samples[samples.length - 1]!)).toBeLessThan(0.01)
+  })
   it('has audible, finite, unclipped music with a continuous cyclic tail', () => {
     const rate = 8000
     const samples = new Float32Array(rate * MUSIC_DURATION)

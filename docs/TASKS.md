@@ -100,24 +100,20 @@
 
 ## 当前进度
 
-> 2026-10-09 新 Session 核查：已新增 [HANDOFF.md](HANDOFF.md)，并检查实际源码与 Git，M0 已实施、M1 维持用户视频验收「有条件通过」。本轮重跑 lint/typecheck/test/build 全部通过（7 文件 / 30 测试），构建保留 919.57 KB 3D 分块警告。浏览器直接点地面完成进出、区域自动更新、屋顶剖面、进度继续，320/390/844px 尺寸检查无横向溢出；原生增益/源计数/10 次 Canvas 重载探针未在本轮重跑，真机与长期资源仍待验收。
+> 2026-10-09：用户明确确认「M1 验收成功，开始 M2」。本轮完成 M2 列车开场、真实 Loading/重试、模式/心情/勿扰、IndexedDB 设置复用、到站过场、全屏主入口及 M1 调试页分离。工程检查与桌面浏览器验证通过，M2 等待用户体验验收。
 >
-> **待处理缺口**：当前仅有 M1 验证页，全屏沉浸主页与调试页尚未分离。先审阅 HANDOFF 第 7 节的 M1 收尾计划，等待用户确认后实施，不直接开始 M2。下一 Session 必须先读 HANDOFF，再核对 Git、代码与测试；以后每阶段更新 HANDOFF 和 TASKS。
+> 最新现状以 [HANDOFF.md](HANDOFF.md) 为准。下方 M0/M1 执行记录是历史证据，原有「待确认 M1 / 不开始 M2」措辞已被本轮授权取代。真机听感/锁屏/GPU 与长期堆验证仍未执行，不能用用户验收推断这些测试已跑过。
 
-> 2026-10-09 需求补充：本轮只更新 PRD、ARCHITECTURE、TASKS、DECISIONS，未实现 JSON 备份或云同步。M4 负责手动跨设备备份与合并基础，云适配器未排期。继续优先完善、验收 M1 便利店与室内外音频系统；M1 真机听感/后台/GPU 等已知限制仍未解决，不自动推进 M2 或云同步。
-
-本轮文档更新验证：`npm run lint`、`npm run typecheck`、`npm run test`（7 个文件 / 30 项）、`npm run build` 全部通过；构建仍有既有 3D 分块超过 500 KB 的警告。同步功能仅完成需求与架构说明，上述检查不代表同步已实现或验收。
-
-- [x] M0 初始化（工程验证完成；真机验收待执行）
-- [x] M1 核心便利店音景（工程与浏览器验证完成；真机待验收）
-- [ ] M2 新干线与模式
+- [x] M0 工程基础
+- [x] M1 核心便利店音景（用户已确认验收成功）
+- [x] M2 新干线与模式（实现与工程/桌面浏览器验证完成，待用户验收）
 - [ ] M3 播放器与推荐
-- [ ] M4 声音档案
+- [ ] M4 声音档案、JSON 备份
 - [ ] M5 雷达旅行
 - [ ] M6 临时聊天
 - [ ] M7 精修与发布
 
-> M0、M1 已实施；M2–M7 未开始。M1 完成后停止，等待用户验收；本轮没有实施新干线。
+云同步未排期，仍需单独授权。当前完成 M2 后停止，不自动推进 M3。
 
 ## M0 执行记录（2026-10-09）
 
@@ -204,4 +200,27 @@
 - 3D 模块约 919.57 KB / gzip 244.27 KB，仍有 Vite 500 KB 体积警告；保留 R3F 内部 THREE.Clock 弃用警告。测试过的正常流程无应用错误。
 - 音景为明确标注的原创合成测试内容；正式美术、录音、雨夜 Shader、随机过车与 M2 新干线均未实现。
 
-运行与验收方式见 README 和 TEST_PLAN。下一步先完成 HANDOFF 中待确认的 M1 收尾与真机验收；M2 仍需用户单独授权，本轮在检查后停止。
+以上为 M1 阶段历史记录。用户于本轮确认 M1 验收成功并授权 M2，最新实施结果见下节；真机限制继续保留。
+
+## M2 执行记录（2026-10-09）
+
+**交付**：原创程序化新干线车厢、移动窗景和柔和底噪；原生可关闭玻璃模式/心情弹窗与独立勿扰；IndexedDB 复用已确认设置；约 5 秒减速/开门/穿门/自动下车/镜头上摇；真实加载阶段、错误重试、跳过和返回；全屏入口与 `#/debug/m1` 分离。
+
+模式真实驱动 musicMode Gain：sleep 过滤唯一 Demo 器乐后回退雨声，tired/anxious 降低旋律强度，DND 不改变音乐。社交权限纯函数强制 mode + DND + 主动开启条件；本轮不实现雷达、聊天或 M3 完整推荐。音频新增 train 通道但只有一个主音乐源，始终复用全局引擎。
+
+| 模块 / 文件 | 变更目的 |
+|---|---|
+| `src/app/App.tsx`、`DebugPage.tsx`、`JourneyController.ts`、`runtime.ts` | 全屏入口、调试路由、可取消/跳过的状态流转、设置与空间音频协调 |
+| `src/world/TrainModel.tsx`、`WorldScene.tsx`、`WorldViewport.tsx`、`sceneHooks.ts` | 列车画面、运镜、单 Canvas 场景切换、真实加载/失败和视觉生命周期 |
+| `src/world/StationScene.tsx`、`StationSimulation.ts` | 复用 M1 内容、上摇后固定相机、到站自动行走 |
+| `src/features/modes.ts`、`src/db/settings.ts` | 模式策略/权限纯函数、唯一 IndexedDB 设置源及结构/错误边界 |
+| `src/ui/ModeDialog.tsx`、`GlassDialog.tsx`、`AudioControls.tsx`、`src/styles.css` | 玻璃弹窗、首尾焦点循环、全屏响应式、实际模式声音说明 |
+| `src/audio/AudioEngine.ts`、`mixer.ts`、`generatedAudio.ts` | 列车底噪、模式串联增益、原音轨时间线与暂停语义保持 |
+| `tests/unit`、`tests/integration` | 新增旅程/权限/存储/音频集成回归；M1 测试适配新增列车源 |
+| `index.html`、README、HANDOFF、TASKS、TEST_PLAN、ARCHITECTURE、DECISIONS、ASSET_MANIFEST | 入口信息、真实现状、验收记录、决策与原创资产登记 |
+
+**验证**：lint 零警告、typecheck strict、11 files / 54 tests、build 全部通过。Edge/Chromium 完成普通动画与减少动态效果流程、设置刷新复用/静音开场、十次往返、WebGL 丢失/重试、调试路由、键盘焦点循环、320/390/844px 全屏布局及存储/音频/模块加载失败回退。实际结果与限制详见 TEST_PLAN 的 M2 节。
+
+**Git 与范围**：基线 `28edf31`，分支 main，开始时工作区干净；本轮未改依赖/lockfile、AGENTS、PRD、参考素材。工作以 M2 提交保存，最终 SHA/工作区状态见 `git log -1` / `git status --short` 与交付回复。不推送或部署。
+
+**剩余**：M2 用户体验验收、真实 iOS/Android 触控/听感/后台与性能；保留 920.14 KB 3D 分块及 THREE.Clock 警告。完整曲库、计时、档案、雷达、聊天、PWA 均未提前实现。本轮停止，M3 需下一次授权。

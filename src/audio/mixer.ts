@@ -1,9 +1,11 @@
 import type { WorldZone } from '../world/zones'
 
-export const ZONE_MIX: Record<WorldZone, { music: number; rain: number }> = {
-  outside: { music: 0, rain: 1 },
-  doorway: { music: 0.45, rain: 0.65 },
-  inside: { music: 1, rain: 0.25 },
+export type AudioZone = WorldZone | 'train'
+export const ZONE_MIX: Record<AudioZone, { music: number; rain: number; train: number }> = {
+  train: { music: 0, rain: 0, train: 1 },
+  outside: { music: 0, rain: 1, train: 0 },
+  doorway: { music: 0.45, rain: 0.65, train: 0 },
+  inside: { music: 1, rain: 0.25, train: 0 },
 }
 export const MIX_SECONDS = 0.8
 export interface Ramp { from: number; to: number; start: number; end: number }

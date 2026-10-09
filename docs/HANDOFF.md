@@ -1,120 +1,97 @@
 # Soundscape Railway — Session 交接
 
-> 更新：2026-10-09（Asia/Shanghai）｜本轮：上下文恢复与 M1 核查，未实施 M2。
-> 结论：M0 工程基础已实现；M1 核心纵切片已实现，维持用户视频验收结论「有条件通过」。全屏主页面与调试页未分离，真机、听感和长期资源验收尚未完成。
+> 更新：2026-10-09（Asia/Shanghai）｜本轮：用户确认 M1 验收成功，授权并实施 M2。
+> 结论：M0/M1 已实现，M1 已获用户验收；M2 实现及工程/桌面浏览器验证完成，等待用户体验验收。本轮止于 M2，M3–M7 未开始。
 
 ## 1. 新 Session 从这里开始
 
-1. 先读本文件，再读 AGENTS、README 和 PRD / DECISIONS / ARCHITECTURE / DESIGN_SYSTEM / TASKS / TEST_PLAN；权威顺序仍按 AGENTS。
-2. 检查 `git status`、`git log`、源码与测试。交接记录是线索，不能仅凭文档判断功能完成。
-3. 保留现有工程、lockfile 和用户资源，不重新初始化或重写 M0/M1；一次只推进一个获授权的里程碑。
-4. 每阶段更新 HANDOFF 与 TASKS：现状、重要文件、技术决策、实际验证、未解决问题、Git 状态、下一步。尽量用 Git 提交保存已验证工作，不自动推送或发布。
-5. 本轮检查后暂停，等待用户确认 M1 收尾范围，不直接开始 M2。
+1. 先读本文件，再读 AGENTS 与 PRD / DECISIONS / ARCHITECTURE / DESIGN_SYSTEM / TASKS / TEST_PLAN；检查实际 Git、源码和测试，不只依赖文档。
+2. 保留现有工程、lockfile 和用户资源；一次只推进一个获授权里程碑。旧 HANDOFF 的「等待 M1 收尾确认」已被本轮用户明确授权取代。
+3. M2 完成后停止；用户体验验收不代表真机/听感/锁屏/GPU 测试已经执行。M3 需单独授权。
+4. 每阶段更新 HANDOFF 和 TASKS；保存已验证工作，不自动推送或发布。
 
-## 2. 仓库与实际完成情况
+## 2. 当前实际功能
 
-要求读取的八份文档均存在；本轮开始没有 HANDOFF。源码目录为 `src/app`、`src/world`、`src/audio`、`src/ui`，测试为 `tests/unit`、`tests/integration`；另有 public 与 references，没有正式 E2E 测试目录。
+- **主入口**：全屏程序化新干线车厢，门、座椅、暖灯、移动窗景与轻晃；首次无声。「启程」在手势调用栈解锁音频并打开模式弹窗，也可静音启程。
+- **模式**：focus / sleep / relax / free；心情 calm / happy / tired / anxious / lonely 独立；DND 独立。可关闭/取消；每次启程均显示。只保存确认后的设置。
+- **真实策略**：唯一原创器乐《雨灯》适用于 focus/relax/free，sleep 无候选时仅雨声；疲惫/焦虑将音乐模式增益降至 0.65，不覆盖用户音量。勿扰不改变音乐。统一社交权限函数要求放松/自由、勿扰关闭、用户主动开启三者同时成立；雷达/聊天本轮仍未实现。
+- **到站**：约 5 秒前台帧驱动过场，减速 -> 开门 -> 第一人称穿门 -> 微缩角色从底座右侧自动走下车 -> 相机上摇到原固定约 45° 正交视角。可跳过、可取消返回车厢。减少动态效果省略大幅运镜/晃动/窗景流动。
+- **便利店**：完整复用 M1 地面点选、碰撞寻路、坐标判区、自动门与屋顶剖面。过场结束才接受点选。店内音乐渐入、店外精确静音，曲目时间继续；sleep 策略始终不播放旋律。
+- **返回与调试**：「返回列车」可再次选模式。`#/debug/m1` 保留 M1 验证页；Hash 切换不刷新，保留位置/音频，只保留当前页面的一个 Canvas。
+- **声音**：全局单一引擎与 AudioContext，music/rain/train 三条持续循环源；只有一个主音乐源，effects 仍是预留增益。新增原创 4 秒列车低频底噪。模式/空间/用户三层 Gain 串联；切场景不重启音源。暂停冻结整个 Context，后台主动暂停、回前台手势继续。
+- **设置**：原生 IndexedDB `soundscape-db` version 1，只有 `settings` store，key `mode` 为 mode/mood/doNotDisturb 白名单。没有 localStorage 镜像。读写 2.5 秒超时、blocked/安全拒绝提示后继续旅程，迟到读取不覆盖用户已经开始的选择。
+- **加载/错误**：真实阶段文字，无假百分比。3D 初始化 12 秒超时，WebGL 丢失可重试；模块加载失败可整页重载。所有状态均保留可操作的声音/启程或跳过/返回入口。
 
-- **M0 已实现并由 M1 延续**：Vite + React + TypeScript strict、R3F / Three.js / Drei、相对静态资源 base、按需加载 3D、手势启声、错误与重试、响应式、安全区和减少动态效果。
-- **M1 已实现**：固定约 45° 正交相机、底座、可进入的程序化便利店与角色；地面点选寻路、墙/家具碰撞、移动中改目标、自动门、屋顶和遮挡墙淡出；角色坐标判区；音乐/雨声区域增益、用户独立音量、真实音频时钟、暂停/恢复、后台主动暂停、场景重载保留世界与音频状态。
-- **当前页面**：唯一 App 是 M1 原型/验证页，包含介绍、嵌入式 Canvas、快捷步行、音景控制和重载按钮。没有独立全屏主页面或调试路由。
-- **尚未实现**：新干线、模式/心情、旅程、完整播放器/曲库/推荐、计时器、IndexedDB、声音档案、雷达、聊天、Service Worker / 离线缓存、云同步。M2–M7 未开始。
-- **资产**：程序化模型与合成音景标注原创 Demo；32 秒《雨灯》和 8 秒雨声仅在内存生成。参考 PNG/MP4 保留且不进入运行包。正式 GLB、录音曲库、雨夜 Shader、随机过车未实现。
+尚未实现：M3 完整曲库/推荐/导入/下一首/喜欢/定时，M4 会话有效时长与档案/备份，M5 雷达，M6 聊天，M7 PWA 离线/正式美术/发布。无真实在线用户、后端、账户、AI 或云同步。
 
-## 3. 七项 M1 核查
-
-| 核查 | 实际结论与源码证据 | 本轮验证边界 |
-|---|---|---|
-| 1. 点击地面移动 | 已实现。`StationScene.tsx` 的 Ground 点击以 `event.point.x/z` 调用 moveTo，经 `navigation.ts` 寻路、`StationSimulation.step` 移动、`Player.tsx` 同步模型 | 本轮桌面浏览器直接点击进店/出店成功；真实手机触摸待验收 |
-| 2. 坐标自动判区 | 已实现。step 用实际 position 调用 `zones.ts` 的 detectZone；`runtime.ts` 将区域交给音频。快捷按钮只设置步行目的地，不强制改区 | 浏览器观察店外→门口→店内及返回；测试覆盖滞回、侧墙、10 次往返 |
-| 3. 音乐渐入/渐出 | 代码和测试通过。`AudioEngine.setWorldZone` → `SmoothGain`，0.8 秒线性 ramp；室外 music 最终为 0 | 本轮未注入原生 AudioParam 探针、未做耳机听感，不能以 UI 状态代替实听 |
-| 4. 往返保留进度 | 已实现。改区不 start / stop / seek 音源；集成测试通过 10 次往返。浏览器出店时 elapsed 从 6.32s 增至 24.82s，再进入门口时为 50.82s | UI 显示 32 秒取模循环，不是重播；刷新本来就是新会话，主动暂停冻结时间 |
-| 5. 单实例/泄漏 | 正常创建、订阅、往返、暂停和 dispose 路径未发现重复源。`engine.ts` 单实例，手势创建 Context，pending/revision 去重/取消，dispose 停源、断连、关闭 Context、移除监听 | mock 测试通过；本轮未重做原生计数、10 次 Canvas 重载、长期堆/GPU 测量，不能断言全面无泄漏 |
-| 6. 手机竖屏 | 基础响应式已实现。CSS 700/350px 断点、安全区、44px 按钮，固定相机按容器缩放；本轮尺寸检查无横向溢出 | 390×844 页面约 1494px 高，需滚动；这是验证页。尺寸模拟不能代替 iOS/Android 真机、GPU 或触控验收 |
-| 7. 全屏/调试页分离 | **未实现**。`main.tsx` 只渲染 App，verification-grid 同时放场景和音频，无页面分流 | 待确认后作为 M1 收尾；不据此启动 M2 |
-
-## 4. 重要文件
+## 3. 重要文件
 
 | 文件 | 职责 |
 |---|---|
-| `src/main.tsx`、`src/app/App.tsx` | StrictMode 入口、页面错误边界、当前 M1 验证页 |
-| `src/app/runtime.ts` | Canvas 之外的世界模拟、区域→音频回调、visibilitychange/pagehide 监听及清理 |
-| `src/world/ScenePreview.tsx` | lazy 场景、12 秒初始化超时、错误/重载、快捷目的地和区域状态 |
-| `src/world/StationScene.tsx` | Canvas、固定相机、地面点击、每帧移动、后台停帧、WebGL 监听 |
-| `src/world/stationLayout.ts`、`navigation.ts` | 共享布局、角色半径、门洞、碰撞、可视图最短路、50ms delta 上限 |
-| `src/world/StationSimulation.ts`、`zones.ts` | 实际位置/路径、离散订阅、滞回区域检测、开门/剖面状态 |
-| `src/world/StoreModel.tsx`、`Player.tsx` | 可替换程序化外观、门/剖面/步态动画 |
-| `src/audio/engine.ts`、`AudioEngine.ts` | 单实例、手势与超时、双循环源、音量、暂停、诊断、销毁、HMR 清理 |
-| `src/audio/mixer.ts`、`generatedAudio.ts`、`noise.ts` | 区域包络、原创旋律、循环合成雨声 |
-| `src/ui/AudioControls.tsx`、`ErrorBoundary.tsx` | 音频订阅、500ms 时钟显示、按钮/音量、错误边界 |
-| `src/styles.css`、`index.html` | 响应式、safe-area、减少动态效果、移动 viewport |
-| `package.json` / lockfile、`tsconfig.json`、`vite.config.ts`、`eslint.config.js` | 精确版本、strict、构建检查、Vitest threads、相对 base |
-| `tests/unit/*.test.ts`、`tests/integration/spatialAudio.test.ts`、`tests/helpers/audio.ts` | 纯逻辑、mock 音频生命周期与空间集成 |
-| `docs/TEST_PLAN.md`、`docs/ASSET_MANIFEST.md` | 历史验收、手工步骤、原创/参考资产登记 |
+| `src/app/App.tsx`、`DebugPage.tsx` | 全屏主体验、Hash 页面分流、M1 验证页 |
+| `src/app/JourneyController.ts` | 纯旅程状态与分阶段帧推进、取消/跳过/乱序保护 |
+| `src/app/runtime.ts` | 模块级 journey/station/audio 协调、设置恢复和串行保存、后台暂停 |
+| `src/features/modes.ts` | 模式/心情类型、白名单校验、musicPolicy、canUseSocial |
+| `src/db/settings.ts` | 最小 IndexedDB 设置仓库、事务完成语义及超时/拒绝回退 |
+| `src/world/WorldViewport.tsx`、`WorldScene.tsx` | lazy 模块、真实 Loading/失败、共用 Canvas、渲染/旅程生命周期 |
+| `src/world/TrainModel.tsx`、`sceneHooks.ts` | 原创车厢、窗景、门/相机动画、可见性/减少动态效果 |
+| `src/world/StationScene.tsx`、`StationSimulation.ts` | 共享 StationContents、固定相机/到站运镜、落地行走与离散世界状态 |
+| `src/world/stationLayout.ts`、`navigation.ts`、`zones.ts`、`StoreModel.tsx`、`Player.tsx` | 沿用 M1 布局、碰撞、判区、外观/步态 |
+| `src/audio/AudioEngine.ts`、`mixer.ts`、`generatedAudio.ts`、`engine.ts` | 单例与三源生命周期、模式/区域增益、原创音景合成 |
+| `src/ui/ModeDialog.tsx`、`GlassDialog.tsx`、`AudioControls.tsx` | 玻璃选择、键盘首尾循环/Escape/焦点恢复、声音控制 |
+| `src/styles.css`、`index.html` | 全屏横竖屏、安全区、玻璃动效与入口信息 |
+| `tests/unit`、`tests/integration` | 11 文件 / 54 测试；包括原 M1 与新增旅程/策略/存储/音频回归 |
 
-## 5. 关键技术决策与规划边界
+## 4. 技术决策与边界
 
-- 地面点击/快捷目的地 → 寻路 → 角色实际坐标 → 滞回 ZoneDetector → 音频增益。相机/目标位置不直接决定区域；DOM 订阅离散状态，Three refs 更新动画。
-- 世界模拟和 AudioEngine 模块持有，独立于 React UI / Canvas 挂载寿命。场景重载不是新音频会话，刷新才重置。
-- 当前是一个 AudioContext、一个 music source、一个 rain source；musicZone→musicUser→master / rainZone→rainUser→master 串联。effects 仅预留，没有 train 发声通道，不把规划五通道说成全部已实现。
-- outside music/rain=(0,1)，doorway=(0.45,0.65)，inside=(1,0.25)，800ms 渐变；反向 ramp 从已记录的包络插值重新调度。出店静音但时间继续，暂停用 Context.suspend 冻结时间。
-- 未启声不创建 Context；resume 在手势调用栈内执行，10 秒超时、失败可重试。后台主动暂停，前台点击继续，不承诺锁屏播放。
-- R3F 声明式卸载 geometry/material，手工监听有 effect 清理；旧音频模块 HMR dispose。没有外部 GLB/贴图，长期泄漏仍需测量。
-- Canvas 前台 always、后台 never，DPR 1–1.5、低功耗偏好；减少动态效果关闭步态/CSS 动画，不等同真机稳定 30fps。
-- ARCHITECTURE 前半的 Zustand、Motion、Dexie、HTMLAudioElement、WorldPhase 等是后续规划；当前以第 12 节和代码为准，业务 IndexedDB/PWA 尚未接入。
-- 保持移动 Web、本地计算、无 AI/账户/自建后端/真实在线社交。JSON 备份属 M4，云同步未排期、另行授权。
+- 无新依赖、无版本升级；不因为 M2 重新初始化工程或替换 M1 音频/寻路。
+- 一次只挂载完整活动视觉子树；train/station 在 WorldScene 内切换共享 renderer，R3F 卸载几何与材质。进入调试页才替换整个 Canvas。音频与世界状态独立存在。
+- 过场只在前台帧推进，delta 上限 100ms，无脱离页面的 timer；完成固定镜头，不提供旋转/摇杆/开放世界。减速 0–1.6s，开门 1.6–2.4s，穿门 2.4–3.2s，上摇 3.2–5s。
+- train 空间 music/rain/train=(0,0,1)，原 outside=(0,1,0)、doorway=(0.45,0.65,0)、inside=(1,0.25,0)。musicMode 单独控制适用性，空间判区仍由实际角色坐标决定。
+- 新 Settings 数据库已真实存在。M4 接 Dexie 时必须迁移或兼容 version 1/settings，不清库。播放统计、偏好档案、导入音乐、聊天等当前没有持久化。
+- TrainModel / 4 秒滚动低频合成均登记为原创 Demo；参考 PNG/MP4 保留原文件，未进入发布包。
 
-## 6. 本轮实际验证
+## 5. 本轮实际验证
 
-Windows PowerShell，Node.js v24.12.0，npm 11.6.2；使用已有依赖和 lockfile，未重装/升级。
+Windows，Node.js 24.12.0 / npm 11.6.2；现有依赖；Vitest 5.0.3。浏览器为 Edge/Chromium headless、内置 Chromium；包括尺寸与触控模拟，不是真实手机。
 
 | 检查 | 结果 |
 |---|---|
-| `npm run lint` | 退出码 0，0 warnings |
-| `npm run typecheck` | 退出码 0，strict 通过 |
-| `npm run test` | 退出码 0，7 files / 30 tests passed |
-| `npm run build` | 退出码 0，Vite 8.3.4 生成 dist；StationScene 919.57 KB / gzip 244.27 KB，仍有超过 500 KB 警告 |
-| `npm run preview -- --strictPort --port 4174` | 生产预览启动，仅绑定 127.0.0.1，内置浏览器访问成功 |
-| 浏览器点选/剖面 | 直接点店内目标，角色从「正在前往」到「店内 · 已到达」，屋顶淡出、内部可见；点店外空地回「店外 · 已到达」 |
-| 浏览器启声/进度/暂停 | 首次无启声、进度 0；点击后显示播放，进出时 elapsed 持续增长；暂停后显示保留进度。未测原生增益或输出 RMS |
-| 视口模拟 | 320×740 clientWidth/scrollWidth=305/305；390×844=375/375；844×390=829/829，无横向溢出。15px 差值来自滚动条，390×844 scrollHeight 约 1494px |
-| 浏览器日志 | 读取到既有 THREE.Clock 弃用 warning，未读取到应用 error；不是全面错误审计 |
+| `npm run lint` | 通过，0 警告 |
+| `npm run typecheck` | 通过，strict；build 内也执行 |
+| `npm run test` | 通过，11 files / 54 tests |
+| `npm run build` | 通过；index JS 256.50 KB / gzip 81.42 KB；WorldScene 6.57 KB；共享 StationScene 920.14 KB / gzip 244.45 KB，保留体积警告 |
+| 正常旅程 | 列车首次无声 -> 手势 -> 玻璃选择 -> 普通过场逐阶段 -> 店内；静音选择与 reduced-motion 也能完成 |
+| 原生音频/模式 | 首次 Context 0；启声后 1 Context / 3 sources / 3 starts；列车 music/rain 为 0、train 为 1；店内音乐区域增益为 1，sleep 的模式增益为 0；改模式及往返不重建源 |
+| 设置/取消 | 实际 IndexedDB 保存 sleep/tired/DND，刷新后预选恢复但不自动发声；取消草稿不保存；静音启程 Context 仍 0 |
+| 10 次列车往返 | 暂停时间恒为 6.341333333s；1 Context / 3 sources / 3 starts / 1 Canvas / 1 WebGL；每次便利店场景 GPU buffers 恒 227 |
+| WebGL 重试/调试页 | 主动 loseContext -> 提示 -> 重试；旧 Context 确认失效，声音仍 running 且源不增加；调试页进店返回主体验位置与声音保留 |
+| 320×740 / 390×844 / 844×390 | client/scroll 宽高分别相等，无主页面横向溢出或额外滚动；横竖屏 HUD 可操作 |
+| 键盘 | 连续 18 次 Tab 留在模态内，Escape 关闭并恢复启程按钮焦点 |
+| 异常回退 | IndexedDB 属性安全拒绝、音频 resume 拒绝、场景 chunk 中断均提供提示且不阻塞旅程；取消拦截后整页重载恢复 |
+| 触控与加载超时 | hasTouch 的移动 Chromium 直接 tap 地面进店/出店；320×740 / 844×390 弹窗可滚动确认；延迟 chunk 达 12 秒出现失败，重试并释放请求后恢复画面 |
 
-测试组成：AudioEngine 17、导航 3、zones 3、mixer 2、生成音景 2、white noise 2、空间集成 1。集成使用真实 StationSimulation，但 Web Audio 是 mock，不能当成真实浏览器音质/硬件测试。
+本轮修正了模态 Tab 到边界时焦点交给浏览器工具栏的问题；补充 IDB 属性访问本身抛 SecurityError 的回退。全部相关测试复测通过。
 
-工具限制：tabbit launcher 不存在；Playwright CLI offline 启动返回 ENOTCACHED，未安装依赖。使用内置浏览器；沙箱 4173 访问超时，换宿主环境仅本机监听的 4174 后成功。浏览器临时连接中断后重连并重新验证地面进出。工具失败不是应用或四项工程检查失败。
+浏览器脚本/截图位于被忽略的 `output/playwright/m2-*`，探针不进入发布代码；不是已接入 npm 的正式 E2E 套件。完整步骤与补充验证见 TEST_PLAN 的 M2 节。
 
-**历史证据，未在本轮全部重做**：TEST_PLAN/TASKS 记载 M0 16 项测试、M1 30 项测试及 Edge/Chromium 触摸模拟、原生增益/源计数、10 次往返和场景重载、刷新、模拟后台、reduced-motion。仓库保留被忽略的 `output/playwright/m1-*.js` / 截图。本轮未重跑这些原生探针，不把历史结果当作本轮通过。
+环境工具限制及处理：沙箱本地服务浏览器连接超时、沙箱 npx offline 缓存不可见；改用宿主环境的仅本机 4176 预览与已缓存 Playwright CLI 后完成。未下载新依赖。脚本首次直接 check 视觉隐藏 radio 被 label 拦截，改为实际点按标签；重复注入探针和遗留 reduced-motion 仿真导致的脚本错误已隔离并重跑，不归因于应用。
 
-**本轮工程检查没有失败项。尚未通过验收/未验证**：全屏与调试页分离未实现；iOS Safari / Android Chrome 真机触摸、耳机听感、后台/锁屏、真机帧率及长期堆/GPU 测试未执行；正式 E2E 未建立。M2–M7 未实现，不能用 M1 结果勾选全产品验收。
+## 6. 已知限制与真机验收
 
-## 7. 已知问题与待确认修复计划
+- 未连接真实 iOS Safari / Android Chrome；耳机听感、循环接缝、后台/锁屏、真机触摸/GPU/连续帧率未测。
+- 长期 JS 堆、低端机性能仍无结论；10 次同场景 buffer 稳定只证明本次短程计数，没有宣称完全无泄漏。
+- R3F 仍出现 THREE.Clock 弃用 warning。主动 WebGL 丢失测试会产生 Context Lost / extension warning；正常流程无应用错误。未屏蔽警告。
+- 仍有 920 KB 共享 Three 分块；按真实手机表现再决定拆分，不提前升级依赖掩盖问题。
+- 单曲 Demo 策略只证明模式硬过滤，不代表 M3 完整推荐/曲库完成；sleep 纯雨声是明确回退。
 
-本轮未发现核心点击移动、坐标判区或播放进度链路的明确故障；不修改功能代码、不大规模重构。
+手工验收：`npm run dev -- --host 0.0.0.0`，真机同网段打开；先低设备音量，检查首次静音、启程/静音选项、四种模式与五种心情、勿扰、正常到站与跳过/取消、只点地面进出店、返回列车 10 次、暂停/后台恢复、刷新预选和横竖屏。记录机型/系统/浏览器/听感/帧率。具体分项见 TEST_PLAN。
 
-| 项目 | 拟执行方案（待确认） | 受影响文件 | 验证 |
-|---|---|---|---|
-| P1：全屏/调试页未分离 | M1 内小范围拆页面外壳：主入口充满视口场景、可收起音景控件，`#/debug/m1` 保留验证页；复用模拟/引擎，只挂载一个 Canvas，不新增列车/模式 | App.tsx、styles.css、ScenePreview.tsx、AudioControls.tsx；按需新增页面/共享场景组件；同步 README/HANDOFF/TASKS/TEST_PLAN | 手机横竖屏、safe-area、地面进出、10 次往返、页面切换保留位置/音频、无重复 Canvas/主音源，四项检查 |
-| P1：真机/听感未验收 | 先采集实机结果，复现故障才定点修复，不提前更换引擎 | 先更新测试/交接文档；代码范围取决于复现 | iOS Safari / Android Chrome 触控、听感、后台/锁屏与连续进出 |
-| P2：长期资源缺证据 | 复用测试探针，补持续使用/重载观测，分别看原生源、GPU、JS 堆 | 忽略目录 output/playwright 与测试文档；证实故障再改生命周期 | 10 次重载、长时间使用、唯一主源、旧资源释放、监听/堆趋势 |
-| P2：分块体积/Clock warning | 先测手机加载/帧率再定拆分或兼容升级方案；不屏蔽警告或改 node_modules | 暂无代码改动；以后可能涉及 vite 配置、依赖/lockfile、场景导入 | 冷加载、包体、实机性能、移动/音频回归 |
+## 7. Git 与下一步
 
-## 8. 下一步手工步骤
+- 仓库 `D:\Soundscape World`，main；本轮基线 `28edf31`（docs: record M1 audit and session handoff），开工工作区干净；M1 代码在 `a11b3c9`。
+- 本轮只修改 M2 源码、测试与相关文档；AGENTS、PRD、设计规范、依赖/lockfile、参考素材未修改。dist、output、CLI 产物均被忽略。
+- 本轮以 M2 提交保存验证结果；不把提交自身 SHA 嵌入文件。实际提交 SHA/清洁状态以 `git log -1`、`git status --short` 和最终回复为准。未推送或部署。
+- 验收预览：`http://127.0.0.1:4176/`；重启后运行 `npm run preview -- --strictPort --port 4176`（需先 build）。调试页为 `http://127.0.0.1:4176/#/debug/m1`。
 
-1. `npm run dev -- --host 0.0.0.0`，同局域网真机访问电脑 IP；用户环境需允许所需本地开发端口。记录机型、系统、浏览器；本轮本机预览不等于真机联调。
-2. 刷新应店外、静音、进度 0；先调低设备音量，再点击启声，店外听雨声。
-3. **只点地面**进入店内、门口、店外，验证真实行走、门/屋顶、自动判区，不依赖快捷按钮。
-4. 连续进出 10 次，听渐入/出至静音、雨声变化、循环接缝；观察进度持续。调音乐用户音量后室外仍静音。
-5. 暂停后移动不应自行出声；继续保留进度。切后台/锁屏后回来记录平台实际表现，点击恢复。
-6. 播放中重载场景 10 次，验证位置/音频不重置；持续使用测帧率、堆/GPU。刷新是新会话，不属于往返重播缺陷。
-7. 横竖屏、减少动态效果下检查点按、滚动、安全区和音量。现有验证页不作为全屏页面验收。
-
-当前下一步：用户审阅七项核查与 P1 页面方案，确认 M1 收尾范围后再修改。M1 验收后仍需停止，M2 单独授权。
-
-## 9. Git 状态
-
-- 仓库 `D:\Soundscape World`，分支 main；本轮开始 `git status --porcelain=v1` 为空，没有未提交用户修改。
-- 基线 `a11b3c990f6d924bd00e64910421de8c23782768`，`m1完成待验收`（2026-10-09 20:32:04 +08:00）；前一提交 `d3043deac27bb202fb97950224b88b28eaa8185b`，`首次提交`（19:05:57 +08:00），包含 M0 工程。
-- M1 代码已入 Git，README 原先“代码仍在工作区未提交”已更正。历史 M0/M1 执行记录中的未提交状态仅代表当时。
-- 本轮新增 HANDOFF，更新 TASKS、README、AGENTS；没有源码、依赖或参考素材变更。dist / output 等被忽略。
-- 本节记录核查基线，不将文档提交 SHA 写入其自身；最终提交和清洁状态以实际 `git log -1` / `git status --short` 与交付报告为准。没有推送或部署。
+**下一步仅为 M2 用户验收。完成后停止，M3 等用户另行授权。**

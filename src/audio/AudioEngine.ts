@@ -1,15 +1,18 @@
 import { createGeneratedAudio, MUSIC_DURATION } from './generatedAudio'
 import type { SoundBuffers } from './generatedAudio'
 import { SmoothGain, ZONE_MIX } from './mixer'
-import type { WorldZone } from '../world/zones'
+import type { AudioZone } from './mixer'
+import { DEFAULT_SETTINGS, musicPolicy } from '../features/modes'
+import type { ModeSettings } from '../features/modes'
 
 export type AudioStatus = 'idle' | 'starting' | 'playing' | 'paused' | 'background' | 'interrupted' | 'error' | 'unsupported'
-export interface AudioSnapshot { status: AudioStatus; message: string; zone: WorldZone; musicVolume: number; rainVolume: number }
+export interface AudioSnapshot { status: AudioStatus; message: string; zone: AudioZone; musicVolume: number; rainVolume: number; settings: ModeSettings }
 type ContextFactory = () => AudioContext | null
 type BufferFactory = (context: AudioContext) => SoundBuffers
 interface Graph {
   master: SmoothGain; musicUser: SmoothGain; rainUser: SmoothGain; effects: SmoothGain
-  musicZone: SmoothGain; rainZone: SmoothGain; music: AudioBufferSourceNode; rain: AudioBufferSourceNode
+  musicZone: SmoothGain; rainZone: SmoothGain; musicMode: SmoothGain; trainZone: SmoothGain; trainMotor: SmoothGain
+  music: AudioBufferSourceNode; rain: AudioBufferSourceNode; train: AudioBufferSourceNode
 }
 
 function createBrowserContext(): AudioContext | null {
@@ -26,8 +29,9 @@ export class AudioEngine {
   private offset = 0
   private startedAt = 0
   private sourceBuilds = 0
+  private trainMoving = true
   private listeners = new Set<() => void>()
-  private snapshot: AudioSnapshot = { status: 'idle', message: '尚未启声 · 点击后开始聆听', zone: 'outside', musicVolume: 0.55, rainVolume: 0.7 }
+  private snapshot: AudioSnapshot = { status: 'idle', message: '尚未启声 · 点击后开始聆听', zone: 'outside', musicVolume: 0.55, rainVolume: 0.7, settings: { ...DEFAULT_SETTINGS } }
 
   constructor(private readonly contextFactory: ContextFactory = createBrowserContext, private readonly bufferFactory: BufferFactory = createGeneratedAudio) {}
   getSnapshot = (): AudioSnapshot => this.snapshot
@@ -43,15 +47,30 @@ export class AudioEngine {
     sourceBuilds: this.sourceBuilds, elapsed: this.getPlaybackSeconds(),
     musicGain: this.graph?.musicZone.value(this.context?.currentTime ?? 0) ?? ZONE_MIX[this.snapshot.zone].music,
     rainGain: this.graph?.rainZone.value(this.context?.currentTime ?? 0) ?? ZONE_MIX[this.snapshot.zone].rain,
+    trainSources: this.graph ? 1 : 0,
+    trainGain: this.graph?.trainZone.value(this.context?.currentTime ?? 0) ?? ZONE_MIX[this.snapshot.zone].train,
+    policyGain: this.graph?.musicMode.value(this.context?.currentTime ?? 0) ?? musicPolicy(this.snapshot.settings).level,
   })
 
-  setWorldZone = (zone: WorldZone): void => {
+  setWorldZone = (zone: AudioZone): void => {
     if (zone === this.snapshot.zone) return
     this.publish({ zone })
     if (!this.graph || !this.context) return
     const mix = ZONE_MIX[zone]
     this.graph.musicZone.set(mix.music, this.context.currentTime)
     this.graph.rainZone.set(mix.rain, this.context.currentTime)
+    this.graph.trainZone.set(mix.train, this.context.currentTime)
+  }
+
+  setModeSettings = (settings: ModeSettings): void => {
+    this.publish({ settings: { ...settings } })
+    if (this.graph && this.context) this.graph.musicMode.set(musicPolicy(settings).level, this.context.currentTime)
+  }
+
+  setTrainMoving = (moving: boolean): void => {
+    if (this.trainMoving === moving) return
+    this.trainMoving = moving
+    if (this.graph && this.context) this.graph.trainMotor.set(moving ? 0.5 : 0.08, this.context.currentTime, 1.6)
   }
 
   setVolume = (channel: 'music' | 'rain', value: number): void => {
@@ -116,21 +135,24 @@ export class AudioEngine {
       const mix = ZONE_MIX[this.snapshot.zone]
       const master = gain(0), musicUser = gain(this.snapshot.musicVolume), rainUser = gain(this.snapshot.rainVolume)
       const effects = gain(0.5), musicZone = gain(mix.music), rainZone = gain(mix.rain)
-      musicZone.node.connect(musicUser.node); musicUser.node.connect(master.node)
+      const musicMode = gain(musicPolicy(this.snapshot.settings).level), trainZone = gain(mix.train), trainMotor = gain(this.trainMoving ? 0.5 : 0.08)
+      musicZone.node.connect(musicMode.node); musicMode.node.connect(musicUser.node); musicUser.node.connect(master.node)
       rainZone.node.connect(rainUser.node); rainUser.node.connect(master.node)
+      trainZone.node.connect(trainMotor.node); trainMotor.node.connect(master.node)
       effects.node.connect(master.node); master.node.connect(context.destination)
       const source = (buffer: AudioBuffer, target: SmoothGain) => {
         const node = context.createBufferSource(); sources.push(node); nodes.push(node)
         node.buffer = buffer; node.loop = true; node.connect(target.node)
         return node
       }
-      const music = source(buffers.music, musicZone), rain = source(buffers.rain, rainZone)
+      const music = source(buffers.music, musicZone), rain = source(buffers.rain, rainZone), train = source(buffers.train, trainZone)
       rain.loopStart = 0.12
       const now = context.currentTime
       music.start(now, this.offset % MUSIC_DURATION)
       rain.start(now, 0.12)
+      train.start(now)
       this.startedAt = now
-      this.graph = { master, musicUser, rainUser, effects, musicZone, rainZone, music, rain }
+      this.graph = { master, musicUser, rainUser, effects, musicZone, rainZone, musicMode, trainZone, trainMotor, music, rain, train }
       this.sourceBuilds += 1
     } catch (error) {
       sources.forEach((source) => { try { source.stop() } catch { /* Not started yet. */ } })
@@ -166,8 +188,8 @@ export class AudioEngine {
   private releaseGraph(): void {
     if (!this.graph) return
     this.offset = this.getPlaybackSeconds()
-    const { music, rain, ...gains } = this.graph
-    for (const source of [music, rain]) { try { source.stop() } catch { /* Already stopped. */ }; source.disconnect() }
+    const { music, rain, train, ...gains } = this.graph
+    for (const source of [music, rain, train]) { try { source.stop() } catch { /* Already stopped. */ }; source.disconnect() }
     Object.values(gains).forEach((gain) => gain.node.disconnect())
     this.graph = null
   }

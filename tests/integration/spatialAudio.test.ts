@@ -19,7 +19,7 @@ it('moves the real model through ten return journeys, driving gains without new 
     }
   }
   expect(transitions).toEqual(Array.from({ length: 10 }, () => ['doorway', 'inside', 'doorway', 'outside']).flat())
-  expect(sources).toHaveLength(2)
+  expect(sources).toHaveLength(3)
   expect(engine.getDiagnostics().sourceBuilds).toBe(1)
   expect(engine.getPlaybackSeconds()).toBeGreaterThan(30)
   sources.forEach((source) => expect(source.start).toHaveBeenCalledTimes(1))
