@@ -1,0 +1,83 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #eff5f8;
+  background: #101d32;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 280px; background: radial-gradient(ellipse at 72% 30%, #203b53 0%, #101d32 62%); }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; cursor: pointer; min-height: 44px; }
+button:disabled { cursor: wait; opacity: 0.6; }
+button:focus-visible, a:focus-visible { outline: 3px solid #b2d3e9; outline-offset: 5px; }
+p, h1, h2 { margin: 0; }
+.app-shell { max-width: 1120px; margin: auto; padding: max(30px, env(safe-area-inset-top)) max(32px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left)); min-height: 100svh; }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 30px; border-bottom: 1px solid #b2d3e91f; }
+.wordmark { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; font-size: 11px; letter-spacing: 0.18em; line-height: 1.65; font-weight: 600; }
+.wordmark-sub { letter-spacing: 0.4em; color: #a9c4d7; }
+.brand-mark { font-size: 25px; line-height: 1; color: #f3c47d; padding: 9px 11px; border: 1px solid #f3c47d6b; border-radius: 12px 12px 4px 4px; }
+.milestone-badge { padding: 8px 12px; border: 1px solid #b2d3e930; border-radius: 50px; color: #b2d3e9; font-size: 11px; white-space: nowrap; letter-spacing: 0.08em; }
+.intro { padding: 46px 0 32px; }
+.eyebrow { color: #a9c4d7; font-size: 10px; letter-spacing: 0.24em; margin-bottom: 18px; }
+h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.45; letter-spacing: 0.06em; font-weight: 500; }
+h1 span { color: #f3c47d; }
+.intro-copy { color: #a9c4d7; font-size: 13px; line-height: 1.9; margin-top: 16px; }
+.verification-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 24px; align-items: center; }
+.scene-panel { min-width: 0; background: linear-gradient(160deg, #b2d3e90c, #b2d3e903); border: 1px solid #b2d3e926; border-radius: 20px; overflow: hidden; }
+.section-label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 10px; color: #a9c4d7; letter-spacing: 0.09em; }
+.section-label h2 { font-size: inherit; font-weight: 500; }
+.scene-panel > .section-label { padding: 20px 20px 0; }
+.scene-panel .section-label > span { color: #f3c47d; letter-spacing: 0; }
+.scene-canvas { position: relative; height: 340px; }
+.scene-canvas canvas { touch-action: pan-y; }
+.scene-stamp, .view-label { position: absolute; pointer-events: none; bottom: 14px; font-size: 9px; color: #a9c4d7; letter-spacing: 0.1em; }
+.scene-stamp { left: 20px; }
+.view-label { right: 20px; }
+.scene-feedback { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 20px; border-top: 1px solid #b2d3e916; }
+.scene-feedback p { font-size: 11px; color: #d6e7f1; font-variant-numeric: tabular-nums; }
+.text-button { flex-shrink: 0; background: transparent; border: none; color: #f3c47d; padding: 8px 0; font-size: 11px; }
+.scene-note { padding: 0 20px 18px; color: #a9c4d7; font-size: 10px; line-height: 1.8; }
+.audio-check { padding: 24px; }
+.audio-check h2 { margin-top: 28px; font-size: 24px; font-weight: 500; letter-spacing: 0.03em; }
+.muted { margin-top: 14px; color: #a9c4d7; font-size: 12px; line-height: 1.9; }
+.sound-button { width: 100%; display: flex; justify-content: center; align-items: center; gap: 12px; background: #f3c47d; border: 1px solid #ffe2b6; color: #18293b; border-radius: 12px; min-height: 54px; margin-top: 28px; font-size: 14px; font-weight: 650; transition: background 150ms ease; }
+.sound-button:hover { background: #ffdb9f; }
+.sound-button span:last-child { margin-left: auto; }
+.sound-button span:first-child { margin-right: auto; }
+.sound-button span { padding: 0 8px; font-size: 17px; }
+.audio-status { display: flex; gap: 8px; align-items: baseline; margin-top: 18px; font-size: 11px; color: #a9c4d7; line-height: 1.8; }
+.status-dot, .footer-dot { display: inline-block; width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: #719bbd; }
+.is-playing .status-dot { background: #f3c47d; }
+.fine-print { margin-top: 10px; padding-left: 13px; color: #a9c4d7; font-size: 10px; line-height: 1.8; }
+footer { display: flex; align-items: center; gap: 9px; color: #a9c4d7; border-top: 1px solid #b2d3e91f; margin-top: 36px; padding-top: 20px; font-size: 10px; line-height: 1.8; }
+.edition { margin-left: auto; letter-spacing: 0.1em; white-space: nowrap; }
+.scene-fallback { display: grid; align-content: center; gap: 12px; height: 100%; min-height: 180px; padding: 28px; line-height: 1.8; font-size: 13px; color: #d6e7f1; }
+.fatal-error { max-width: 600px; padding: 40px 24px; margin: auto; line-height: 2; }
+@media (max-width: 700px) {
+  .app-shell { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); padding-top: max(22px, env(safe-area-inset-top)); }
+  .masthead { padding-bottom: 22px; }
+  .intro { padding: 30px 0 26px; }
+  h1 { font-size: 32px; }
+  .intro-copy { font-size: 12px; }
+  .verification-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .scene-canvas { height: 280px; }
+  .audio-check { padding: 6px 2px; }
+  .audio-check h2 { margin-top: 20px; font-size: 23px; }
+  .sound-button { margin-top: 22px; }
+  footer { margin-top: 28px; align-items: baseline; }
+  .edition { display: none; }
+}
+@media (max-width: 350px) {
+  .app-shell { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  .milestone-badge { font-size: 10px; padding: 7px 9px; }
+  .scene-panel > .section-label, .scene-feedback { padding-left: 12px; padding-right: 12px; }
+  .scene-note { padding-left: 12px; padding-right: 12px; }
+  h1 { font-size: 29px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
