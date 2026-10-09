@@ -5,7 +5,7 @@
 - **Vite + React + TypeScript（strict）**；React Three Fiber + Three.js + Drei；Zustand 统一 UI 与世界状态。
 - **Web Audio API + HTMLAudioElement**：单个应用级音频引擎，通道为 master/music/rain/train/effects；独立于 React 页面寿命。
 - Motion 用于玻璃 UI 动画，复杂列车镜头导演轨迹再考虑 GSAP，避免重复依赖。
-- IndexedDB + Dexie 存档；SVG/CSS Grid 统计；Service Worker 做 PWA 静态资源缓存。
+- IndexedDB + Dexie 是唯一的本地业务数据源；SVG/CSS Grid 统计；Service Worker 做 PWA 静态资源缓存。默认无需账户、不连接云服务；后续第三方文件同步不引入自建后端或云数据库。
 - Vitest 测业务逻辑；Playwright 测流程；手机 Safari/Chrome **实机**测音频与 GPU。
 - 不需要 Next.js SSR、Supabase、Firebase、Prisma、用户身份系统、AI API、后端服务。
 
@@ -99,6 +99,28 @@ export interface EphemeralChatSession {
 
 所有时间存 Unix 毫秒，显示时按本地日期聚合。备份 JSON 含 schemaVersion；导入时校验版本、体积、类型及文本安全性。播放时长的统计规则应可复算和测试。导入音频文件如果保存在 IndexedDB，必须处理浏览器容量与清理；如果只保留文件指针，则显式告知刷新后可能失效。
 
+### 6.1 本地优先同步契约（规划，尚未实现）
+
+M4 仅实现版本化声音档案 JSON 导入/导出、稳定 ID 和可测试的合并逻辑。后续数据流为：`IndexedDB Repository -> 白名单序列化 -> SyncProvider -> 第三方文件存储`；接收方向为 `下载 -> 校验/迁移 -> 合并预览与冲突处理 -> IndexedDB 事务提交 -> 重建统计`。UI、音频与统计不能直接读取远端文件作为业务数据源。
+
+- 每个可同步业务记录与事件在首次创建时分配全局唯一 ID（拟采用 UUID）；更新、导入、导出及重试保持 ID 不变，不使用设备内自增键或时间戳作为唯一 ID。记录包含来源设备标识、schemaVersion 和修订信息；设备标识不代表用户账户。旧版缺 ID 备份需有可重复的迁移映射，不能每次导入生成新 ID。
+- 优先评估不可变事件及按 ID 的集合合并：相同 ID、相同内容只保留一次；相同 ID、不同内容登记冲突，不静默覆盖。会话修订、设置等可变记录需保留修订来源/前序版本，识别并发修改；不能只靠设备时钟决定胜者。冲突规则和用户确认方式实施前明确。
+- 有效时长及偏好从去重后的记录复算；同一会话的修订不能当作新会话累计，不能把跨设备统计快照直接相加。合并逻辑独立于 UI 和 Provider，验证幂等性、顺序无关性及并发场景。
+- 删除需评估带稳定 ID 的删除事件或 tombstone，避免旧备份恢复已删记录；保留周期和清空档案的跨设备语义尚待决定。未解决冲突保留双方内容及本地历史，不能静默删除。
+
+`SyncProvider` 为后续存储适配器契约，职责包括用户主动连接/断开、读取文件与远端 revision/ETag、按预期版本条件写入，以及统一报告未授权、网络、冲突和服务兼容性错误。合并、统计、迁移和加密层不放入适配器；契约在文档中规划，本轮不新增源码或 SDK 依赖。
+
+同步流程先读取远端并校验，再与本地事件合并；IndexedDB 事务保留合并结果及待上传状态，上传时校验读取到的远端版本。版本变化后重新读取并合并，不能用最后上传文件全量覆盖历史。不支持可靠条件写入的服务须先评估并发保护方案，不能宣称可安全同步。重试以稳定 ID 保持幂等，失败不回滚或删除本地新增记录。
+
+### 6.2 适配器、安全与生命周期（后续评估）
+
+- Dropbox：优先评估官方 JavaScript SDK、OAuth 2.0 PKCE、公有浏览器客户端和 App Folder 最小权限；确认静态托管回调地址、所需 scopes、令牌生命周期与条件写入能力。此处为评估要求，尚未选定版本、注册应用或验证兼容性，不嵌入客户端秘密。
+- WebDAV：作为高级选项，必须实测目标服务 HTTPS、身份验证，以及浏览器跨域 CORS（包括预检、所需方法/请求头和 ETag 响应头可见性）。不兼容时明确拒绝连接，不能通过新增自建代理绕过项目边界。
+- 默认不创建云连接或远端请求。用户开启前展示字段白名单和第三方服务存储、访问数据的隐私边界；允许断开与撤销授权，并说明远端文件删除是独立操作。
+- 采用明确的导出字段白名单，排除音乐 Blob/文件内容、本地文件路径或句柄、临时聊天正文、OAuth 令牌、WebDAV 凭据及密钥。认证状态与业务档案隔离；持有方式、过期和撤销策略后续评估，不进入备份、同步文件或日志。
+- 后续评估 Web Crypto API 客户端加密：认证加密、随机 nonce、文件格式版本、跨设备密钥传递、密钥丢失和恢复边界；密钥不能与密文一起上传。未完成前不得声称第三方只能看到密文。
+- 仅在网页运行期间适时同步，可在主动同步、恢复前台或本地变更后调度；失败显示待重试，断开停止调度。Service Worker 仅负责资源缓存，不承诺关页后持续后台同步。
+
 ## 7. 推荐与雷达纯函数
 
 `recommendTracks(context, catalog, history, seededRandom)`：先硬筛场景，再计分后带权随机，能在测试中复现结果。没有候选就返回明确的空状态。
@@ -138,6 +160,8 @@ tests/unit, tests/integration, tests/e2e
 
 ## 11. M0 实际落地（2026-10-09）
 
+> 以下是 M0 历史记录；当前实现以第 12 节 M1 为准。
+
 - React 19 + R3F 9 + Three.js + Drei；严格 TypeScript。源码只建立 `app/world/audio/ui`，没有提前建立后续业务状态、数据库或假界面。
 - `App -> ScenePreview -> lazy PlaceholderScene`：3D 模块延迟加载，DOM 音频面板独立可用。固定正交相机随容器尺寸调整缩放，点击底座只记录触点。无角色、开门、ZoneDetector 或相机旋转。
 - Canvas 使用 `frameloop="demand"`、DPR 1–1.5、低功耗偏好。几何和材质由 R3F 声明式创建/卸载，事件监听在 effect 清理；重试以新场景实例替换旧实例。无外部 GLB/贴图。
@@ -146,3 +170,18 @@ tests/unit, tests/integration, tests/e2e
 - Web Audio 不支持/拒绝/等待超时/中断，以及 WebGL 初始化超时/上下文丢失/渲染错误都有可见反馈。加载提示仅反映阶段，不显示虚构进度百分比。
 - M0 没有共享复杂状态，暂不直接接入 Zustand、Motion、Dexie 或 Service Worker；Drei/R3F 的内部依赖不代表业务状态已经实现。
 - 工具选型依据：[Vite 安装要求](https://vite.dev/guide/)、[R3F 与 React 版本匹配](https://r3f.docs.pmnd.rs/getting-started/installation)、[Web Audio 手势启动实践](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices)。具体版本以 package.json / package-lock.json 为准。
+
+## 12. M1 实际落地（2026-10-09）
+
+数据流：`地面点击 / 快捷目的地 -> findPath -> StationSimulation.position -> detectZone(previousZone) -> AudioEngine.setWorldZone -> SmoothGain`。固定相机与点击目标均不能直接改变声音区域。
+
+- `stationLayout.ts` 同时定义墙、家具、门洞、底座边界和角色半径。导航先扩张障碍物，再通过矩形角点可视图与最短路找出通行路径；每条线段做碰撞检查。移动中重新点选会从当前位置重新规划；非法目标显示提示。门洞是进出店的唯一通路。
+- `StationSimulation` 由 `app/runtime.ts` 持有，位置和路径独立于 Canvas。每帧更新模型和 Three refs，仅目标、区域、到达等离散事件通知 React。重载场景保留角色位置和音频状态。帧 delta 上限 50ms，防止恢复前台后跳跃。
+- `zones.ts` 对门口两侧做滞回：外侧进入门口阈值 z=1.0，返回店外 z>1.15；内侧进入店内 z<0.3，退出店内 z>=0.45。还校验 x / 店铺边界；侧墙外不会被判定为室内。门在角色距离足够近时提前打开。
+- `StoreModel.tsx` 与 `Player.tsx` 仅负责程序化外观和动画；之后可替换 GLB。角色接近入口时，屋顶/前墙/右墙随实际位置淡出；离开后恢复。相机为固定正交相机，没有 OrbitControls。
+- 单个应用级 AudioContext；音乐、雨声各只有一个循环 AudioBufferSource。32 秒原创旋律与 8 秒雨声在首次手势后生成；effects Gain 通道预留、没有发声实例。所有通道接到 master；用户音量与空间音量为串联 Gain，互不覆盖。
+- 空间增益：outside `(music 0, rain 1)`；doorway `(0.45, 0.65)`；inside `(1, 0.25)`；800ms 线性渐变。`SmoothGain` 记录包络，重定向时从当时的实际插值开始，不依赖浏览器是否实现 cancelAndHoldAtTime。室外音乐最终精确为 0，source 时间继续。
+- 暂停使用 master 静音和 AudioContext.suspend；恢复直接 resume，不重建 source。UI 显示音频时钟得出的循环进度。页面隐藏/pagehide 主动暂停，恢复后由用户点击继续。刷新不持久化位置或音频进度，重新回到初始静音态。
+- 前台 Canvas 持续渲染用于行走/门/屋顶动画，隐藏时 `frameloop="never"`。DPR 仍限制 1–1.5。R3F 负责几何/材质销毁，手工事件监听均有清理；旧音频模块 HMR dispose 停止并断开节点。
+
+当前选择暂停整个 Context 以冻结两条音源的播放进度，依据 [AudioContext.suspend 的时间语义](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext/suspend)。真实移动浏览器的后台事件调度仍需真机验证。

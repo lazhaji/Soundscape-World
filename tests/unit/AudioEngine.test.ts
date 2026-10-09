@@ -1,82 +1,119 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AudioEngine } from '../../src/audio/AudioEngine'
-
-function mockAudio() {
-  const sources: { start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; buffer: AudioBuffer | null; loop: boolean; connect: ReturnType<typeof vi.fn> }[] = []
-  const listeners = new Set<() => void>()
-  const gain = { gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() }
-  const context = {
-    state: 'suspended', sampleRate: 48000, currentTime: 12, destination: {},
-    resume: vi.fn(async () => { context.state = 'running' }),
-    close: vi.fn(async () => { context.state = 'closed' }),
-    addEventListener: vi.fn((_name: string, callback: () => void) => listeners.add(callback)),
-    removeEventListener: vi.fn((_name: string, callback: () => void) => listeners.delete(callback)),
-    createBuffer: vi.fn((_channels: number, length: number) => ({ getChannelData: () => new Float32Array(length) })),
-    createGain: vi.fn(() => gain),
-    createBufferSource: vi.fn(() => {
-      const source = { start: vi.fn(), stop: vi.fn(), disconnect: vi.fn(), buffer: null, loop: false, connect: vi.fn() }
-      sources.push(source)
-      return source
-    }),
-  }
-  const factory = vi.fn(() => context as unknown as AudioContext)
-  return { context, gain, sources, factory, listeners, engine: new AudioEngine(factory) }
-}
+import { mockAudio } from '../helpers/audio'
 
 afterEach(() => vi.useRealTimers())
 
-describe('gesture-only application audio service', () => {
-  it('does not create or resume a context when constructed or subscribed', () => {
+describe('application audio transport', () => {
+  it('creates no audio on construction, subscription or zone changes', () => {
     const { engine, factory } = mockAudio()
-    const unsubscribe = engine.subscribe(vi.fn())
+    engine.setWorldZone('inside')
+    engine.subscribe(vi.fn())()
     expect(engine.getSnapshot().status).toBe('idle')
-    unsubscribe()
     expect(factory).not.toHaveBeenCalled()
   })
 
-  it('resumes within the gesture call and deduplicates simultaneous/repeated starts', async () => {
-    const { engine, factory, context, sources, gain } = mockAudio()
-    const first = engine.startFromGesture()
+  it('resumes synchronously in a gesture and creates exactly one music/rain source', async () => {
+    const { engine, factory, context, sources, buffers } = mockAudio()
+    const operation = engine.startFromGesture()
     expect(context.resume).toHaveBeenCalledTimes(1)
-    expect(engine.startFromGesture()).toBe(first)
-    await first
+    expect(engine.startFromGesture()).toBe(operation)
+    await operation
     await engine.startFromGesture()
     expect(factory).toHaveBeenCalledTimes(1)
-    expect(sources).toHaveLength(1)
-    expect(sources[0]?.start).toHaveBeenCalledTimes(1)
-    expect(sources[0]?.loop).toBe(true)
-    expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, 12)
-    expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.035, 12.3)
+    expect(buffers).toHaveBeenCalledTimes(1)
+    expect(sources).toHaveLength(2)
+    sources.forEach((source) => { expect(source.start).toHaveBeenCalledTimes(1); expect(source.loop).toBe(true) })
     expect(engine.getSnapshot().status).toBe('playing')
   })
 
-  it('keeps audio alive when the UI unsubscribes and subscribes again', async () => {
-    const { engine, factory, sources } = mockAudio()
-    const unsubscribe = engine.subscribe(vi.fn())
+  it('does not rebuild/restart/seek either source after ten journeys and preserves the timeline', async () => {
+    const { engine, sources, advance } = mockAudio()
     await engine.startFromGesture()
-    unsubscribe()
-    const unsubscribeAgain = engine.subscribe(vi.fn())
-    expect(engine.getSnapshot().status).toBe('playing')
-    expect(sources[0]?.stop).not.toHaveBeenCalled()
-    expect(factory).toHaveBeenCalledTimes(1)
-    unsubscribeAgain()
-  })
-
-  it('stops/disconnects each source across ten restarts while reusing one context', async () => {
-    const { engine, factory, sources, gain } = mockAudio()
-    for (let index = 0; index < 10; index += 1) {
-      await engine.startFromGesture()
-      engine.stop()
-      expect(sources[index]?.stop).toHaveBeenCalledTimes(1)
-      expect(sources[index]?.disconnect).toHaveBeenCalledTimes(1)
+    for (let index = 0; index < 10; index++) {
+      engine.setWorldZone('doorway'); advance(1)
+      engine.setWorldZone('inside'); advance(1)
+      expect(engine.getDiagnostics().musicGain).toBe(1)
+      expect(engine.getDiagnostics().rainGain).toBe(0.25)
+      engine.setWorldZone('doorway'); advance(1)
+      engine.setWorldZone('outside'); advance(1)
+      expect(engine.getDiagnostics().musicGain).toBe(0)
+      expect(engine.getDiagnostics().rainGain).toBe(1)
     }
-    expect(factory).toHaveBeenCalledTimes(1)
-    expect(sources).toHaveLength(10)
-    expect(gain.disconnect).toHaveBeenCalledTimes(10)
-    expect(engine.getSnapshot().status).toBe('stopped')
+    expect(engine.getPlaybackSeconds()).toBe(40)
+    expect(engine.getDiagnostics().sourceBuilds).toBe(1)
+    expect(sources).toHaveLength(2)
+    sources.forEach((source) => { expect(source.start).toHaveBeenCalledTimes(1); expect(source.stop).not.toHaveBeenCalled() })
   })
 
-  it('can retry a rejected resume without creating another context', async () => {
+  it('pauses and resumes the same transport without resetting or advancing paused time', async () => {
+    const { engine, advance, sources } = mockAudio()
+    await engine.startFromGesture(); advance(7)
+    engine.pause(); advance(25)
+    engine.setWorldZone('inside')
+    expect(engine.getPlaybackSeconds()).toBe(7)
+    expect(engine.getSnapshot().status).toBe('paused')
+    await engine.startFromGesture(); advance(2)
+    expect(engine.getPlaybackSeconds()).toBe(9)
+    expect(sources).toHaveLength(2)
+    expect(engine.getDiagnostics().musicGain).toBe(1)
+  })
+
+  it('does not restart when a UI subscription is replaced', async () => {
+    const { engine, sources } = mockAudio()
+    const unsubscribe = engine.subscribe(vi.fn())
+    await engine.startFromGesture(); unsubscribe()
+    engine.subscribe(vi.fn())()
+    expect(engine.getSnapshot().status).toBe('playing')
+    sources.forEach((source) => expect(source.stop).not.toHaveBeenCalled())
+  })
+
+  it('keeps user volume independent from zone gain and clamps invalid inputs', async () => {
+    const { engine, advance } = mockAudio()
+    await engine.startFromGesture()
+    engine.setVolume('music', 0.25); engine.setWorldZone('inside'); advance(1)
+    expect(engine.getSnapshot().musicVolume).toBe(0.25)
+    expect(engine.getDiagnostics().musicGain).toBe(1)
+    engine.setWorldZone('outside'); engine.setVolume('music', 1); advance(1)
+    expect(engine.getDiagnostics().musicGain).toBe(0)
+    engine.setVolume('rain', 3); engine.setVolume('music', NaN)
+    expect(engine.getSnapshot().rainVolume).toBe(1)
+    expect(engine.getSnapshot().musicVolume).toBe(1)
+  })
+
+  it('applies the current zone if the player walks inside before enabling audio', async () => {
+    const { engine } = mockAudio()
+    engine.setWorldZone('inside'); await engine.startFromGesture()
+    expect(engine.getDiagnostics().musicGain).toBe(1)
+    expect(engine.getDiagnostics().rainGain).toBe(0.25)
+  })
+
+  it('freezes background playback and leaves explicit pause/idle untouched', async () => {
+    const { engine, advance, sources } = mockAudio()
+    engine.pauseForBackground()
+    expect(engine.getSnapshot().status).toBe('idle')
+    await engine.startFromGesture(); advance(3)
+    engine.pauseForBackground(); advance(20)
+    expect(engine.getSnapshot().status).toBe('background')
+    expect(engine.getPlaybackSeconds()).toBe(3)
+    await engine.startFromGesture(); advance(1)
+    expect(engine.getPlaybackSeconds()).toBe(4)
+    engine.pause(); engine.pauseForBackground()
+    expect(engine.getSnapshot().status).toBe('paused')
+    expect(sources).toHaveLength(2)
+  })
+
+  it('reports interruption and resumes existing sources after a gesture', async () => {
+    const { engine, context, listeners, sources } = mockAudio()
+    await engine.startFromGesture()
+    context.state = 'interrupted'; listeners.forEach((listener) => listener())
+    expect(engine.getSnapshot().status).toBe('interrupted')
+    await engine.startFromGesture()
+    expect(engine.getSnapshot().status).toBe('playing')
+    expect(sources).toHaveLength(2)
+  })
+
+  it('allows retry after browser permission rejection', async () => {
     const { engine, context, factory, sources } = mockAudio()
     context.resume.mockRejectedValueOnce(new Error('Permission denied'))
     await engine.startFromGesture()
@@ -87,19 +124,16 @@ describe('gesture-only application audio service', () => {
     expect(factory).toHaveBeenCalledTimes(1)
   })
 
-  it('reports unsupported audio without throwing', async () => {
-    const engine = new AudioEngine(() => null)
-    await engine.startFromGesture()
-    expect(engine.getSnapshot().status).toBe('unsupported')
+  it('handles unsupported/failed context creation without throwing', async () => {
+    const unsupported = new AudioEngine(() => null)
+    await unsupported.startFromGesture()
+    expect(unsupported.getSnapshot().status).toBe('unsupported')
+    const failed = new AudioEngine(() => { throw new Error('Device unavailable') })
+    await failed.startFromGesture()
+    expect(failed.getSnapshot().status).toBe('error')
   })
 
-  it('reports context creation failure with a retryable error', async () => {
-    const engine = new AudioEngine(() => { throw new Error('Device unavailable') })
-    await engine.startFromGesture()
-    expect(engine.getSnapshot().status).toBe('error')
-  })
-
-  it('does not claim playback when the browser remains suspended', async () => {
+  it('does not claim playback when the context remains suspended', async () => {
     const { engine, context, sources } = mockAudio()
     context.resume.mockImplementationOnce(async () => {})
     await engine.startFromGesture()
@@ -107,69 +141,54 @@ describe('gesture-only application audio service', () => {
     expect(sources).toHaveLength(0)
   })
 
-  it('times out a stalled browser resume rather than leaving the button busy forever', async () => {
+  it('times out a stalled resume', async () => {
     vi.useFakeTimers()
-    const { engine, context, sources } = mockAudio()
+    const { engine, context } = mockAudio()
     context.resume.mockImplementationOnce(() => new Promise(() => {}))
     const operation = engine.startFromGesture()
-    await vi.advanceTimersByTimeAsync(10000)
-    await operation
+    await vi.advanceTimersByTimeAsync(10000); await operation
     expect(engine.getSnapshot().status).toBe('error')
-    expect(sources).toHaveLength(0)
   })
 
-  it('does not start late after stop cancels an in-flight unlock', async () => {
+  it('ignores an old unlock after a cancelled start and a new gesture', async () => {
     const { engine, context, sources } = mockAudio()
-    let resume!: () => void
-    context.resume.mockImplementationOnce(() => new Promise<void>((resolve) => { resume = resolve }))
-    const operation = engine.startFromGesture()
-    engine.stop()
-    context.state = 'running'
-    resume()
-    await operation
-    expect(sources).toHaveLength(0)
-    expect(engine.getSnapshot().status).toBe('stopped')
-  })
-
-  it('ignores an old unlock finishing after a fresh start', async () => {
-    const { engine, context, sources } = mockAudio()
-    let resumeOld!: () => void
-    context.resume.mockImplementationOnce(() => new Promise<void>((resolve) => { resumeOld = resolve }))
+    let resolve!: () => void
+    context.resume.mockImplementationOnce(() => new Promise<void>((done) => { resolve = done }))
     const oldOperation = engine.startFromGesture()
-    engine.stop()
+    engine.pause()
     await engine.startFromGesture()
-    resumeOld()
-    await oldOperation
-    expect(sources).toHaveLength(1)
+    resolve(); await oldOperation
+    expect(sources).toHaveLength(2)
     expect(engine.getSnapshot().status).toBe('playing')
   })
 
-  it('cleans up and requests another gesture after browser interruption', async () => {
-    const { engine, context, sources, listeners } = mockAudio()
-    await engine.startFromGesture()
-    context.state = 'interrupted'
-    listeners.forEach((listener) => listener())
-    expect(engine.getSnapshot().status).toBe('interrupted')
-    expect(sources[0]?.disconnect).toHaveBeenCalledTimes(1)
-    await engine.startFromGesture()
-    expect(engine.getSnapshot().status).toBe('playing')
+  it('cancels a pending unlock when the page is hidden', async () => {
+    const { engine, context, sources } = mockAudio()
+    let resolve!: () => void
+    context.resume.mockImplementationOnce(() => new Promise<void>((done) => { resolve = done }))
+    const operation = engine.startFromGesture()
+    engine.pauseForBackground(); resolve(); await operation
+    expect(engine.getSnapshot().status).toBe('background')
+    expect(sources).toHaveLength(0)
   })
 
-  it('releases partial nodes when starting a source fails', async () => {
-    const { engine, context, sources, gain } = mockAudio()
-    context.createBufferSource.mockImplementationOnce(() => { throw new Error('Node failure') })
+  it('cleans all partially allocated nodes if the second source fails', async () => {
+    const { engine, context, sources, gains } = mockAudio()
+    const original = context.createBufferSource.getMockImplementation()!
+    context.createBufferSource.mockImplementationOnce(original).mockImplementationOnce(() => { throw new Error('Node error') })
     await engine.startFromGesture()
     expect(engine.getSnapshot().status).toBe('error')
-    expect(sources).toHaveLength(0)
-    expect(gain.disconnect).toHaveBeenCalledTimes(1)
+    sources.forEach((source) => expect(source.disconnect).toHaveBeenCalled())
+    gains.forEach((gain) => expect(gain.disconnect).toHaveBeenCalled())
+    await engine.startFromGesture()
+    expect(engine.getSnapshot().status).toBe('playing')
   })
 
-  it('disposes all nodes/listeners and closes the context once', async () => {
-    const { engine, context, sources, listeners } = mockAudio()
-    await engine.startFromGesture()
-    await engine.dispose()
-    await engine.dispose()
-    expect(sources[0]?.stop).toHaveBeenCalledTimes(1)
+  it('disposes two sources, all gains and context listeners exactly once', async () => {
+    const { engine, context, sources, gains, listeners } = mockAudio()
+    await engine.startFromGesture(); await engine.dispose(); await engine.dispose()
+    sources.forEach((source) => { expect(source.stop).toHaveBeenCalledTimes(1); expect(source.disconnect).toHaveBeenCalledTimes(1) })
+    gains.forEach((gain) => expect(gain.disconnect).toHaveBeenCalledTimes(1))
     expect(context.close).toHaveBeenCalledTimes(1)
     expect(listeners.size).toBe(0)
   })

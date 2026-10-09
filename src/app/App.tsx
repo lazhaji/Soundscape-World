@@ -1,20 +1,23 @@
-import { AudioCheck } from '../ui/AudioCheck'
+import { useEffect } from 'react'
+import { AudioControls } from '../ui/AudioControls'
 import { ScenePreview } from '../world/ScenePreview'
+import { attachPageLifecycle } from './runtime'
 
 export function App() {
+  useEffect(attachPageLifecycle, [])
   return (
     <main className="app-shell">
       <header className="masthead">
         <a className="wordmark" href="./" aria-label="Soundscape Railway 首页"><span className="brand-mark" aria-hidden="true">▥</span><span>SOUNDSCAPE<br /><span className="wordmark-sub">RAILWAY</span></span></a>
-        <span className="milestone-badge">M0 · 技术验证</span>
+        <span className="milestone-badge">M1 · 空间音景</span>
       </header>
       <div className="intro">
         <p className="eyebrow">A SMALL PLACE FOR SOUND</p>
-        <h1>下一站，<br /><span>声音的栖息地。</span></h1>
-        <p className="intro-copy">一座小小的车站，一段属于自己的声音。<br />旅程从此刻的技术原型开始。</p>
+        <h1>雨夜里，<span>有一盏灯等你。</span></h1>
+        <p className="intro-copy">点一点，走进街角便利店。<br />音乐在店里，雨声在门外。</p>
       </div>
-      <div className="verification-grid"><ScenePreview /><AudioCheck /></div>
-      <footer><span className="footer-dot" aria-hidden="true" /><p>当前仅验证 3D 与点击启声。完整旅程尚未开放。</p><span className="edition">PROTOTYPE / 00</span></footer>
+      <div className="verification-grid"><ScenePreview /><AudioControls /></div>
+      <footer><span className="footer-dot" aria-hidden="true" /><p>M1 可交互原型 · 程序化模型与本地合成音景</p><span className="edition">SOUNDSCAPE / 01</span></footer>
     </main>
   )
 }
