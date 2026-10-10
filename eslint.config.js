@@ -8,6 +8,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores(['dist', 'coverage', 'output', '.playwright-cli', 'references']),
   { files: ['**/*.js'], extends: [js.configs.recommended], languageOptions: { globals: globals.node } },
+  { files: ['src/vendor/**/*.js'], languageOptions: { globals: globals.browser } },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, tseslint.configs.recommended],

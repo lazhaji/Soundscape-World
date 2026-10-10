@@ -200,3 +200,13 @@ tests/unit, tests/integration, tests/e2e
 - 音频现为一个 Context、三个持久循环源（music/rain/train），无重复主音乐。新增 4 秒原创列车低频底噪、trainZone/trainMotor，车内空间值 `(music 0, rain 0, train 1)`，车外 train 为 0；减速时 trainMotor 从 0.5 用 1.6 秒降至 0.08。musicZone -> musicMode -> musicUser -> master；用户音量、模式策略、空间增益彼此独立。改模式、往返和打开 UI 不 start/stop/seek 音源。暂停仍 suspend 整个 Context；不保证系统后台或锁屏持续播放。
 - `db/settings.ts` 使用原生 IndexedDB `soundscape-db` version 1，仅创建 `settings` store，`mode` key 只保存已确认的 mode/mood/doNotDisturb。读写以事务完成为准，结构白名单校验，2.5 秒超时/blocked/权限失败可见提示且允许继续；迟到读取不覆盖用户已开始选择的内容。没有 localStorage 镜像、统计或聊天存储。M4 接入 Dexie 时须兼容/迁移这份现有数据库，不可清库重建。
 - 仍不新增状态库、Motion、数据库依赖或外部素材；依赖和 lockfile 未修改。M3 完整推荐/播放器/计时、M4 档案、M5–M7 后续功能未开始。
+
+### 13.1 模式弹窗视觉增量（2026-10-10）
+
+`ModeDialog -> GlassDialog + LiquidSwitch`，样式在 `src/ui/mode-dialog.css`；模式与心情仍为受控原生 radio，勿扰为原生 checkbox。ModeDialog 仅维护草稿，确认/取消继续走既有 runtime。AudioEngine、JourneyController、Settings 与 Three 场景均未改动。
+
+`LiquidSwitch` 在 mount 后动态导入 vendored MIT `liquid-glass.js`，折射 aria-hidden 轨道副本；每帧只更新 DOM CSS 变量与 lens 参数。native input 和 React checked 状态是唯一交互事实，未加载核心时继续使用 CSS 手柄。装饰最大目标区域为 80×56 CSS px，mapScale=1，不新增 WebGL Context。
+
+unmount/无障碍偏好变化会停止两条弹簧、销毁滤镜/ResizeObserver、删除事件监听与内联动画属性。异步导入用 revision + disposed 阻止关闭后初始化。引擎共享 SVG defs 和最多 48 个位移图缓存可保留；本轮十次开合活动 filter 均归零。类型声明约束已用 API；vendor JS 仍执行 ESLint，单独配置浏览器 globals。
+
+源码与构建均附 MIT 许可，无新增 npm 依赖。普通面板采用 CSS 模糊，高成本折射仅在手柄按住时可见；reduced-motion / reduced-transparency / 高对比 / forced-colors 均回退原生/CSS。实际浏览器结果与未验证平台见 TEST_PLAN 最新节。

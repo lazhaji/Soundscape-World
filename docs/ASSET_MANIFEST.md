@@ -50,4 +50,13 @@
 | `m2-train` | `src/world/TrainModel.tsx` / 程序化车厢、车门、座椅、窗外建筑 | 本项目原创几何，无品牌素材/外部模型 | 无第三方授权依赖，可随本项目修改和网页分发，无第三方署名要求 |
 | `m2-rolling-hum` | `src/audio/generatedAudio.ts` 的 `fillTrain` / 4 秒单声道 PCM | 本项目原创 55/110/173 Hz 正弦叠加及周期包络 | 无采样/录音/第三方曲目，运行时内存生成，可随项目代码分发 |
 
-玻璃 UI 为本项目 CSS 实现，不使用参考视频作为运行时素材。M1 模型与音景继续复用；参考 PNG/MP4 和依赖未改动。
+以上为 10-09 初版 CSS 玻璃实现；10-10 增量如下。参考视频不作为运行时素材；M1 模型与音景继续复用，参考 PNG/MP4 和 npm 依赖未改动。
+
+## M2 模式弹窗重设计资源（2026-10-10）
+
+| assetId | 路径 / 类型 | 作者与来源 | 许可 / 修改 / 再分发 / 署名 |
+|---|---|---|---|
+| `m2-mode-art` | `src/ui/ModeDialog.tsx` / 专注、睡眠、放松、自由的线条 SVG 与隐私标记 | 项目原创路径与几何 | 非第三方图片，可随项目修改与发布；无外部图片或字体请求 |
+| `liquid-glass-core` | `src/vendor/liquid-glass/liquid-glass.js` / v1.0.0 核心 | gentpan；用户指定 liquid-glass-web 技能的 assets 原样文件；[上游](https://github.com/gentpan/liquidglass) | MIT，可修改/网页再分发，必须保留版权与许可；本轮未修改核心。完整 notice 在相邻 LICENSE 及 `public/licenses/liquid-glass.txt`，构建后随站点发布 |
+
+仅折射核心作为本地懒加载资源；组件全集、WebGL renderer、示例壁纸未引入。原始 SHA-256 与接入说明见 `src/vendor/liquid-glass/README.md`。标题采用设备已有宋体/衬线字体，未打包第三方字体。

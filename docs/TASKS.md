@@ -224,3 +224,16 @@
 **Git 与范围**：基线 `28edf31`，分支 main，开始时工作区干净；本轮未改依赖/lockfile、AGENTS、PRD、参考素材。工作以 M2 提交保存，最终 SHA/工作区状态见 `git log -1` / `git status --short` 与交付回复。不推送或部署。
 
 **剩余**：M2 用户体验验收、真实 iOS/Android 触控/听感/后台与性能；保留 920.14 KB 3D 分块及 THREE.Clock 警告。完整曲库、计时、档案、雷达、聊天、PWA 均未提前实现。本轮停止，M3 需下一次授权。
+
+## M2 模式弹窗重设计（2026-10-10）
+
+用户在只读分析后明确授权使用 liquid-glass-frontend / liquid-glass-web 重新设计模式弹窗。
+
+- [x] 雨夜车票式单层磨砂面板、四段选择、原创模式 SVG、心情和真实声音说明。
+- [x] 原生勿扰开关 + 按住时的小范围 SVG 折射；动态加载 MIT 核心并保留许可，无新 npm 依赖。
+- [x] 保留原生模态关闭/焦点/单选语义和现有模式、音频、IndexedDB 逻辑。
+- [x] 取消场景与遮罩重复模糊；移动横竖屏滚动和减少动态/高对比降级。
+- [x] lint、strict typecheck、54 测试、build；Chromium 四尺寸、键盘/触控、十次开合与音频/滤镜清理、保存/取消/刷新、折射 chunk 失败回退。
+- [ ] 用户视觉验收与真实 iOS/Android 性能/兼容性。
+
+关键文件：`src/ui/ModeDialog.tsx`、`LiquidSwitch.tsx`、`mode-dialog.css`、`src/styles.css`、`src/vendor/liquid-glass/`、`public/licenses/liquid-glass.txt`；eslint 为浏览器 vendor 文件补充 globals，未屏蔽 lint。Git 基线 main / `6b173bb`，最终提交见 Git。M3 未开始。

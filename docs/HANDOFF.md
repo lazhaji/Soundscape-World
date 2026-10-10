@@ -1,7 +1,7 @@
 # Soundscape Railway — Session 交接
 
-> 更新：2026-10-09（Asia/Shanghai）｜本轮：用户确认 M1 验收成功，授权并实施 M2。
-> 结论：M0/M1 已实现，M1 已获用户验收；M2 实现及工程/桌面浏览器验证完成，等待用户体验验收。本轮止于 M2，M3–M7 未开始。
+> 更新：2026-10-10（Asia/Shanghai）｜本轮：用户指定 liquid-glass-frontend / liquid-glass-web，授权重新设计 M2 模式弹窗。
+> 结论：M1 已验收；M2 主流程已实现，本轮完成模式弹窗重设计，等待用户体验验收。最新增量见第 8 节；第 5 节保留 10-09 的验证证据。M3–M7 未开始。
 
 ## 1. 新 Session 从这里开始
 
@@ -13,7 +13,7 @@
 ## 2. 当前实际功能
 
 - **主入口**：全屏程序化新干线车厢，门、座椅、暖灯、移动窗景与轻晃；首次无声。「启程」在手势调用栈解锁音频并打开模式弹窗，也可静音启程。
-- **模式**：focus / sleep / relax / free；心情 calm / happy / tired / anxious / lonely 独立；DND 独立。可关闭/取消；每次启程均显示。只保存确认后的设置。
+- **模式**：focus / sleep / relax / free；心情 calm / happy / tired / anxious / lonely 独立；DND 独立。10-10 重设计为雨夜车票式磨砂面板、四段模式选择和原创 SVG 插画、心情选择、局部折射勿扰开关。可关闭/取消；每次启程均显示。只保存确认后的设置。
 - **真实策略**：唯一原创器乐《雨灯》适用于 focus/relax/free，sleep 无候选时仅雨声；疲惫/焦虑将音乐模式增益降至 0.65，不覆盖用户音量。勿扰不改变音乐。统一社交权限函数要求放松/自由、勿扰关闭、用户主动开启三者同时成立；雷达/聊天本轮仍未实现。
 - **到站**：约 5 秒前台帧驱动过场，减速 -> 开门 -> 第一人称穿门 -> 微缩角色从底座右侧自动走下车 -> 相机上摇到原固定约 45° 正交视角。可跳过、可取消返回车厢。减少动态效果省略大幅运镜/晃动/窗景流动。
 - **便利店**：完整复用 M1 地面点选、碰撞寻路、坐标判区、自动门与屋顶剖面。过场结束才接受点选。店内音乐渐入、店外精确静音，曲目时间继续；sleep 策略始终不播放旋律。
@@ -39,6 +39,7 @@
 | `src/world/stationLayout.ts`、`navigation.ts`、`zones.ts`、`StoreModel.tsx`、`Player.tsx` | 沿用 M1 布局、碰撞、判区、外观/步态 |
 | `src/audio/AudioEngine.ts`、`mixer.ts`、`generatedAudio.ts`、`engine.ts` | 单例与三源生命周期、模式/区域增益、原创音景合成 |
 | `src/ui/ModeDialog.tsx`、`GlassDialog.tsx`、`AudioControls.tsx` | 玻璃选择、键盘首尾循环/Escape/焦点恢复、声音控制 |
+| `src/ui/mode-dialog.css`、`LiquidSwitch.tsx`、`src/vendor/liquid-glass/` | 模式专用材质/响应式/无障碍降级；原生 checkbox 的小范围折射与弹簧；MIT 原样引擎和类型边界 |
 | `src/styles.css`、`index.html` | 全屏横竖屏、安全区、玻璃动效与入口信息 |
 | `tests/unit`、`tests/integration` | 11 文件 / 54 测试；包括原 M1 与新增旅程/策略/存储/音频回归 |
 
@@ -95,3 +96,20 @@ Windows，Node.js 24.12.0 / npm 11.6.2；现有依赖；Vitest 5.0.3。浏览器
 - 验收预览：`http://127.0.0.1:4176/`；重启后运行 `npm run preview -- --strictPort --port 4176`（需先 build）。调试页为 `http://127.0.0.1:4176/#/debug/m1`。
 
 **下一步仅为 M2 用户验收。完成后停止，M3 等用户另行授权。**
+
+## 8. M2 模式弹窗重设计（2026-10-10，当前增量）
+
+- 用户先要求只读分析，随后明确要求使用两个 Liquid Glass 技能重新设计模式弹窗，已授权本轮修改；本轮不扩展 M3 播放器。
+- 设计为冷蓝磨砂、暖金高光的「雨夜车票」：宋体/衬线标题、四段模式选择与移动高光、单一当前模式预览和原创线条 SVG、五种心情、独立勿扰、真实到站声音说明与确认按钮。模式/心情/DND 的策略和存储代码未修改。
+- 模式面板保留 22px blur + saturate(145%)，移除旧模式态全场景 blur，模式专用 backdrop 只暗化。内部 inset 不叠加背景模糊；声音弹窗继续使用原样式与语义。
+- `LiquidSwitch.tsx` 以原生 checkbox 接受鼠标/触控/键盘；装饰副本 aria-hidden 且不接收指针。按住才显示小范围 SVG 折射，松开恢复实色手柄。视觉弹簧直接更新 DOM，不逐帧更新 React 状态。
+- 动态加载用户指定技能附带的 `liquid-glass.js` v1.0.0 原样核心（MIT / gentpan）；不使用组件全集、WebGL 玻璃层、CDN、外部字体或演示壁纸。类型声明在相邻 `.d.ts`，许可在源码与 `public/licenses/liquid-glass.txt`（随构建发布），来源/哈希见 vendor README。npm 依赖/lockfile 不变。
+- 关闭面板或切换到 reduced-motion / reduced-transparency / 高对比 / forced-colors 时清理活动滤镜、ResizeObserver、弹簧与监听。引擎加载失败维持原生/CSS 控件；有界位移图缓存和一个空 SVG defs 容器可复用，不是活动滤镜。
+- 本轮验证：lint、strict typecheck、11 文件 / 54 现有测试通过；生产 build 通过，保留既有 920 KB Three 分块警告。折射核心单独懒加载块 8.76 KB / gzip 3.91 KB；主 JS 261.60 KB / gzip 82.94 KB；CSS 27.26 KB / gzip 6.67 KB，发布目录已核实包含 MIT notice。
+- Chromium 浏览器：四模式/五心情选择、方向键、Space、18 次 Tab 焦点约束、Escape/遮罩关闭和焦点恢复；取消草稿不保存，确认→到站→返回和刷新恢复 sleep/tired/DND，刷新不自动启声；全部通过。
+- 尺寸 320×740 / 390×844 / 844×390 / 1280×900：面板在视口内、无横向溢出；低高度内部滚动，确认按钮可达。检查静止/按住折射截图与 forced-colors 截图；reduced-motion 实际禁用形变/活动滤镜。
+- 连续 10 次开合：关闭后活动滤镜 0，始终 1 AudioContext / 3 sources / 3 starts。触控模拟和主动拦截折射 chunk：原生开关、提交到站和声音弹窗仍可用，无应用 pageerror。故意中断 chunk 的网络失败日志为预期。
+- 证据在被忽略的 `output/playwright/m2-glass-check.js`、`m2-glass-fallback.js` 和 `m2-glass-*.png`。不是正式 npm E2E 套件。测试初次命令过长改为 CLI `--filename`；减少动态效果检查初次早于浏览器媒体事件，补充条件等待后通过。
+- 未连接真实 iOS Safari / Android；不把上游跨浏览器声明当成本项目实测。需真机核查玻璃明暗、触控/滚动、持续帧率和听感，具体步骤见 TEST_PLAN 最新节。
+- Git：本轮基线 main / `6b173bb`，开始工作区干净；仅本轮 UI、vendored 核心/许可、lint 浏览器全局配置和文档变更。提交 SHA 与清洁状态以最终 Git 输出为准，不推送。当前本机预览 `http://127.0.0.1:4176/`，重启可运行 `npm run dev -- --strictPort --port 4176`。
+- 下一步：仅验收本次 M2 模式弹窗，M3 未获授权。

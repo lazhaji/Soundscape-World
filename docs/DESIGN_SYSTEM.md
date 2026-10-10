@@ -40,3 +40,12 @@
 - 手机软键盘与 `safe-area-inset-bottom` 适配；不让输入框被遮挡。
 - 支持 `prefers-reduced-motion`，无需频闪；音量轻柔，音效避免削波和突发大音量。
 - 先保证可读性和 30fps，再考虑高级雨水 Shader 和实时折射；画质档覆盖 low/medium/high。
+
+## M2 模式弹窗实际材质（2026-10-10）
+
+- 雨夜车票方向：冷蓝磨砂主体、暖金重点、衬线标题/模式名称、小号等宽编号；四种模式用分段控件选择，单一预览展示原创线条符号；心情不使用好坏评级颜色。
+- 模式样式独立在 `src/ui/mode-dialog.css`。night/pearl/lamp 三组 RGB 派生文字、边框、背景；仅面板使用 22px 背景模糊 + 145% 饱和度，遮罩只暗化。内部控件不嵌套 backdrop blur，也不模糊整个 3D 场景。
+- 原生勿扰开关静止为实色手柄，按住时以技能核心折射轨道装饰副本并弹簧回弹；不是折射 3D 背景。移动高光与 SVG 预览为局部短动画，不增加连续氛围动画。
+- 保留 44px 控件点击高度；短屏弹窗内部滚动、safe-area；原生 radio 的方向键和 checkbox 的 Space 可用，模态保留 Tab 约束、Escape/遮罩关闭及焦点恢复。
+- reduced-motion 禁用动画及折射，reduced-transparency / 高对比提升面板实度、关闭折射，forced-colors 保留可辨认选中轮廓。外部引擎加载失败回退 CSS/原生控件。
+- 本轮仅改变模式面板；现有声音弹窗与场景 HUD 保留。真机 30fps 与 Safari/Firefox 仍待实测。
