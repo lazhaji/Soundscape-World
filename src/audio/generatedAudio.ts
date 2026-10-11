@@ -43,11 +43,16 @@ export function fillRain(samples: Float32Array, sampleRate: number): void {
 export function createGeneratedAudio(context: AudioContext): SoundBuffers {
   const music = context.createBuffer(1, MUSIC_DURATION * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
   fillDemoMusic(music.getChannelData(0), GENERATED_SAMPLE_RATE)
-  const rain = context.createBuffer(1, 8 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
-  fillRain(rain.getChannelData(0), GENERATED_SAMPLE_RATE)
+  const rain = createRain(context)
   const train = context.createBuffer(1, 4 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
   fillTrain(train.getChannelData(0), GENERATED_SAMPLE_RATE)
   return { music, rain, train }
+}
+
+export function createRain(context: AudioContext): AudioBuffer {
+  const rain = context.createBuffer(1, 8 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
+  fillRain(rain.getChannelData(0), GENERATED_SAMPLE_RATE)
+  return rain
 }
 
 /** Original low-level rolling hum; integer-period harmonics make the loop continuous. */
@@ -57,4 +62,36 @@ export function fillTrain(samples: Float32Array, sampleRate: number): void {
     const rolling = 0.8 + 0.2 * Math.cos(2 * Math.PI * 1.5 * time)
     samples[index] = rolling * (0.07 * Math.sin(2 * Math.PI * 55 * time) + 0.025 * Math.sin(2 * Math.PI * 110 * time) + 0.009 * Math.sin(2 * Math.PI * 173 * time))
   }
+}
+
+/** Original soft wind texture, with a crossfaded loop seam. */
+export function createWind(context: AudioContext): AudioBuffer {
+  const buffer = context.createBuffer(1, 8 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
+  const samples = buffer.getChannelData(0)
+  fillWhiteNoise(samples)
+  let low = 0
+  for (let i = 0; i < samples.length; i++) {
+    low = low * 0.997 + samples[i]! * 0.003
+    samples[i] = low * (0.55 + 0.25 * Math.sin(i / GENERATED_SAMPLE_RATE * Math.PI / 4))
+  }
+  const seam = Math.floor(GENERATED_SAMPLE_RATE * 0.12)
+  for (let i = 0; i < seam; i++) {
+    const t = i / seam, end = samples.length - seam + i
+    samples[end] = samples[end]! * (1 - t) + samples[i]! * t
+  }
+  samples[samples.length - 1] = samples[seam - 1]!
+  return buffer
+}
+
+export function createDoorSound(context: AudioContext): AudioBuffer {
+  const buffer = context.createBuffer(1, Math.floor(0.7 * GENERATED_SAMPLE_RATE), GENERATED_SAMPLE_RATE)
+  const samples = buffer.getChannelData(0)
+  fillWhiteNoise(samples)
+  let low = 0
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / GENERATED_SAMPLE_RATE
+    low = low * 0.96 + samples[i]! * 0.04
+    samples[i] = (low * 0.16 + Math.sin(2 * Math.PI * 170 * t) * 0.006) * Math.sin(Math.PI * t / 0.7) ** 2
+  }
+  return buffer
 }

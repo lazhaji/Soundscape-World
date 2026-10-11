@@ -4,6 +4,8 @@
 
 所有模型、旋律、雨声和列车底噪均为明确标注的项目原创程序化 Demo。无后端、账户、云数据库或 AI。需求以 [PRD](docs/PRD.md) 为准；新 Session 先读 [HANDOFF](docs/HANDOFF.md)。
 
+2026-10-11 新增 **[列车往返运镜 Demo](#/demo/train)**：靠窗 → 停车后穿侧窗 → 固定 45° → 人物下车、列车驶离 → 下一班车接回。晴/多云/小雨与白天/黄昏/夜晚每趟随机。正式入口尚未整合新胶囊；日文广播音频明确待接入。已确认方案和当前边界见 [M2_REDESIGN_SPEC](docs/M2_REDESIGN_SPEC.md)。
+
 ## 本地运行
 
 Node.js 22.13+（22.x）或 24.x；依赖精确锁定，本轮未升级依赖。
@@ -39,7 +41,7 @@ npm run preview
 
 `build` 输出 `dist/`；`preview` 默认仅本机 `http://127.0.0.1:4173/`，相对 base 可用于后续子目录静态部署。直接双击 HTML 不受支持。本轮验收预览用 `npm run preview -- --strictPort --port 4176`；服务停止后可用同一命令恢复。
 
-当前四项检查通过：11 个测试文件 / 54 项测试。浏览器验证包括普通与减少动态效果旅程、模式保存/恢复、10 次列车往返、音源与 GPU buffer 计数、WebGL 重试、权限/存储/加载失败、焦点循环及 320/390/844px 布局。详见 [TEST_PLAN](docs/TEST_PLAN.md)，不等于手机真机或长期内存验收。
+当前四项检查通过：13 个测试文件 / 64 项测试。正式入口的历史验证及新 Demo 的普通/减少动态往返、触控、天气、音源清理和画面重试证据见 [TEST_PLAN](docs/TEST_PLAN.md)。新 Demo 没有冒充旧版十次循环/GPU 验证；均不等于手机真机或长期内存验收。
 
 ## 源码导览
 
@@ -49,6 +51,7 @@ npm run preview
 - `src/features/modes.ts`：模式/心情契约、适用音乐过滤及统一社交权限纯函数。
 - `src/db/settings.ts`：IndexedDB 设置白名单读写、超时与错误回退；尚无声音档案。
 - `src/ui/`：玻璃模式弹窗、可访问模态外壳、声音控制、错误边界。
+- `src/demo/train/`：独立运镜预览、纯控制器、镜头路径、天气、临时选择控件和全局声音协调。
 - `tests/unit/`、`tests/integration/`：逻辑与生命周期回归；临时浏览器脚本/截图位于被忽略的 `output/playwright/m2-*`。
 
 ## 当前边界

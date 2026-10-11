@@ -1,4 +1,4 @@
-import { createGeneratedAudio, MUSIC_DURATION } from './generatedAudio'
+import { createDoorSound, createGeneratedAudio, createRain, createWind, MUSIC_DURATION } from './generatedAudio'
 import type { SoundBuffers } from './generatedAudio'
 import { SmoothGain, ZONE_MIX } from './mixer'
 import type { AudioZone } from './mixer'
@@ -12,8 +12,10 @@ type BufferFactory = (context: AudioContext) => SoundBuffers
 interface Graph {
   master: SmoothGain; musicUser: SmoothGain; rainUser: SmoothGain; effects: SmoothGain
   musicZone: SmoothGain; rainZone: SmoothGain; musicMode: SmoothGain; trainZone: SmoothGain; trainMotor: SmoothGain
-  music: AudioBufferSourceNode; rain: AudioBufferSourceNode; train: AudioBufferSourceNode
+  music: AudioBufferSourceNode; train: AudioBufferSourceNode
+  currentWeather: WeatherLayer; weatherLayers: Set<WeatherLayer>
 }
+interface WeatherLayer { source: AudioBufferSourceNode; fade: SmoothGain }
 
 function createBrowserContext(): AudioContext | null {
   const Constructor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -30,6 +32,9 @@ export class AudioEngine {
   private startedAt = 0
   private sourceBuilds = 0
   private trainMoving = true
+  private weather: 'rain' | 'wind' = 'rain'
+  private ambientMix: { rain: number; train: number; rolling: number } | null = null
+  private effects = new Set<AudioBufferSourceNode>()
   private listeners = new Set<() => void>()
   private snapshot: AudioSnapshot = { status: 'idle', message: '尚未启声 · 点击后开始聆听', zone: 'outside', musicVolume: 0.55, rainVolume: 0.7, settings: { ...DEFAULT_SETTINGS } }
 
@@ -71,6 +76,70 @@ export class AudioEngine {
     if (this.trainMoving === moving) return
     this.trainMoving = moving
     if (this.graph && this.context) this.graph.trainMotor.set(moving ? 0.5 : 0.08, this.context.currentTime, 1.6)
+  }
+
+  setWeather = (weather: 'rain' | 'wind'): void => {
+    if (weather === this.weather) return
+    this.weather = weather
+    if (!this.graph || !this.context) return
+    const graph = this.graph
+    const now = this.context.currentTime
+    const fadeDuration = 0.5
+    const previous = graph.currentWeather
+    const fadeNode = this.context.createGain()
+    const fade = new SmoothGain(fadeNode, 0, now)
+    fadeNode.connect(graph.rainZone.node)
+    const next = this.context.createBufferSource()
+    next.buffer = weather === 'wind' ? createWind(this.context) : createRain(this.context)
+    next.loop = true; next.loopStart = 0.12
+    next.connect(fadeNode)
+    const layer = { source: next, fade }
+    graph.weatherLayers.add(layer)
+    next.onended = () => {
+      next.onended = null
+      next.disconnect()
+      fadeNode.disconnect()
+      graph.weatherLayers.delete(layer)
+    }
+    next.start(now, 0.12)
+    previous.fade.set(0, now, fadeDuration)
+    fade.set(1, now, fadeDuration)
+    previous.source.stop(now + fadeDuration + 0.05)
+    graph.currentWeather = layer
+  }
+
+  /** Visual scenes may supply continuous distance/motion levels without changing user volume. */
+  setAmbientMix = (mix: { rain: number; train: number; rolling: number }): void => {
+    if (![mix.rain, mix.train, mix.rolling].every(Number.isFinite)) return
+    this.ambientMix = { rain: Math.max(0, Math.min(1, mix.rain)), train: Math.max(0, Math.min(1, mix.train)), rolling: Math.max(0, Math.min(1, mix.rolling)) }
+    this.applyAmbientMix()
+  }
+  private applyAmbientMix() {
+    if (!this.graph || !this.context || !this.ambientMix) return
+    this.graph.rainZone.set(this.ambientMix.rain, this.context.currentTime, 0.15)
+    this.graph.trainZone.set(this.ambientMix.train, this.context.currentTime, 0.15)
+    this.graph.trainMotor.set(0.08 + 0.42 * this.ambientMix.rolling, this.context.currentTime, 0.15)
+  }
+  clearAmbientMix = (): void => {
+    this.ambientMix = null
+    if (!this.graph || !this.context) return
+    const mix = ZONE_MIX[this.snapshot.zone]
+    this.graph.rainZone.set(mix.rain, this.context.currentTime)
+    this.graph.trainZone.set(mix.train, this.context.currentTime)
+    this.graph.trainMotor.set(this.trainMoving ? 0.5 : 0.08, this.context.currentTime)
+  }
+  playDoorEffect = (): void => {
+    if (!this.graph || !this.context || this.context.state !== 'running' || this.snapshot.status !== 'playing') return
+    const source = this.context.createBufferSource()
+    source.buffer = createDoorSound(this.context)
+    source.connect(this.graph.effects.node)
+    this.effects.add(source)
+    source.onended = () => { source.disconnect(); this.effects.delete(source) }
+    source.start()
+  }
+  private stopEffects() {
+    this.effects.forEach((source) => { source.onended = null; try { source.stop() } catch { /* Already ended. */ }; source.disconnect() })
+    this.effects.clear()
   }
 
   setVolume = (channel: 'music' | 'rain', value: number): void => {
@@ -145,14 +214,17 @@ export class AudioEngine {
         node.buffer = buffer; node.loop = true; node.connect(target.node)
         return node
       }
-      const music = source(buffers.music, musicZone), rain = source(buffers.rain, rainZone), train = source(buffers.train, trainZone)
+      const music = source(buffers.music, musicZone), weatherFade = gain(1), rain = source(this.weather === 'wind' ? createWind(context) : buffers.rain, weatherFade), train = source(buffers.train, trainZone)
+      weatherFade.node.connect(rainZone.node)
       rain.loopStart = 0.12
       const now = context.currentTime
       music.start(now, this.offset % MUSIC_DURATION)
       rain.start(now, 0.12)
       train.start(now)
       this.startedAt = now
-      this.graph = { master, musicUser, rainUser, effects, musicZone, rainZone, musicMode, trainZone, trainMotor, music, rain, train }
+      const currentWeather = { source: rain, fade: weatherFade }
+      this.graph = { master, musicUser, rainUser, effects, musicZone, rainZone, musicMode, trainZone, trainMotor, music, train, currentWeather, weatherLayers: new Set([currentWeather]) }
+      this.applyAmbientMix()
       this.sourceBuilds += 1
     } catch (error) {
       sources.forEach((source) => { try { source.stop() } catch { /* Not started yet. */ } })
@@ -169,6 +241,7 @@ export class AudioEngine {
   }
 
   pause = (background = false): void => {
+    this.stopEffects()
     ++this.revision
     this.pending = null
     const revision = this.revision
@@ -186,11 +259,13 @@ export class AudioEngine {
   }
 
   private releaseGraph(): void {
+    this.stopEffects()
     if (!this.graph) return
     this.offset = this.getPlaybackSeconds()
-    const { music, rain, train, ...gains } = this.graph
-    for (const source of [music, rain, train]) { try { source.stop() } catch { /* Already stopped. */ }; source.disconnect() }
-    Object.values(gains).forEach((gain) => gain.node.disconnect())
+    const graph = this.graph
+    for (const source of [graph.music, graph.train]) { try { source.stop() } catch { /* Already stopped. */ }; source.disconnect() }
+    for (const { source, fade } of graph.weatherLayers) { try { source.stop() } catch { /* Already stopped. */ }; source.disconnect(); fade.node.disconnect() }
+    for (const gain of [graph.master, graph.musicUser, graph.rainUser, graph.effects, graph.musicZone, graph.rainZone, graph.musicMode, graph.trainZone, graph.trainMotor]) gain.node.disconnect()
     this.graph = null
   }
 

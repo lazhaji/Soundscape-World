@@ -60,3 +60,16 @@
 | `liquid-glass-core` | `src/vendor/liquid-glass/liquid-glass.js` / v1.0.0 核心 | gentpan；用户指定 liquid-glass-web 技能的 assets 原样文件；[上游](https://github.com/gentpan/liquidglass) | MIT，可修改/网页再分发，必须保留版权与许可；本轮未修改核心。完整 notice 在相邻 LICENSE 及 `public/licenses/liquid-glass.txt`，构建后随站点发布 |
 
 仅折射核心作为本地懒加载资源；组件全集、WebGL renderer、示例壁纸未引入。原始 SHA-256 与接入说明见 `src/vendor/liquid-glass/README.md`。标题采用设备已有宋体/衬线字体，未打包第三方字体。
+
+## M2 运镜 Demo（2026-10-11）
+
+| assetId | 位置 / 类型 | 作者、来源与取得日期 | 修改 / 网页分发 / 署名 |
+|---|---|---|---|
+| `m2-motion-train` | `src/demo/train/DemoTrainModel.tsx` / 内外车厢、侧窗、滑门、座椅、车头几何 | 本项目原创，2026-10-11 | 无第三方资产；可随项目修改、分发，无第三方署名要求 |
+| `m2-motion-world` | `src/demo/train/TrainDemoScene.tsx` / 站台、轨道、树、云、雨线、人物、Canvas 招牌 | 本项目原创，2026-10-11；商店复用 M1 | 同上；招牌采用设备系统字体，无外部字体请求 |
+| `m2-wind-demo` | `src/audio/generatedAudio.ts:createWind` / 8 秒单声道 22,050 Hz PCM | 本项目原创滤波随机噪声及循环接缝，2026-10-11 | 不含外部采样，运行时内存合成，可随代码分发 |
+| `m2-door-demo` | `src/audio/generatedAudio.ts:createDoorSound` / 0.7 秒单声道 22,050 Hz PCM | 本项目原创噪声/低电平振荡/包络，2026-10-11 | 同上；明确为机械门声 Demo，非真实新干线录音 |
+
+用户本轮视频 `C:\Users\hanying\Pictures\e6fcb9a5f9dcf51d7cf1e02852fa1eba.mp4` 只作为靠窗构图与行驶参考，未复制或打包；未将片中个人水印用于项目。
+
+**日文广播仍未取得音频资产。** 文案、30–45 秒调度与 [VOICEVOX Nemo 官方制作候选及条款](https://voicevox.hiroshiba.jp/nemo/term/)记录在 `M2_REDESIGN_SPEC.md`。未安装合成器、未下载声音、未声称已经完成具体音色的授权登记。接入时须补充实际音色、文件、工具版本、取得日期及署名；最终只分发固定音频，不把语音工具/模型加入网页。

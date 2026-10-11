@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { audioEngine } from '../audio/engine'
 import { MODES, MOODS, musicPolicy } from '../features/modes'
 import type { ModeSettings } from '../features/modes'
@@ -12,6 +12,7 @@ import { DebugPage } from './DebugPage'
 import { attachPageLifecycle, confirmSettings, journey, loadSettings, setDebugMode, station } from './runtime'
 
 const ARRIVAL_COPY = { braking: '列车正在减速', opening: '到了，车门正在打开', alighting: '穿过车门，走进夜色', lifting: '你的声音空间，就在这里' }
+const TrainDemoPage = lazy(() => import('../demo/train/TrainDemoPage'))
 function ImmersivePage() {
   const { phase, stage, settings, hasArrived } = useSyncExternalStore(journey.subscribe, journey.getSnapshot)
   const world = useSyncExternalStore(station.subscribe, station.getSnapshot)
@@ -60,20 +61,22 @@ function ImmersivePage() {
       </section>
     </>}
     <div className="journey-notices" aria-live="polite">{storageWarning && <p>{storageWarning}</p>}{['error', 'unsupported', 'background', 'interrupted', 'starting'].includes(audio.status) && <p>{audio.message} <button onClick={() => setSoundOpen(true)}>声音设置</button></p>}</div>
-    <div className="journey-footer"><span>Demo · 原创程序化场景与合成音景</span><a href="#/debug/m1">调试页 ↗</a></div>
+    <div className="journey-footer"><span>Demo · 原创程序化场景与合成音景</span><a href="#/demo/train">列车运镜 Demo ↗</a><a href="#/debug/m1">调试页 ↗</a></div>
     {phase === 'mode_select' && <ModeDialog settings={settings} onClose={journey.closeModes} onConfirm={confirm} />}
     {soundOpen && <GlassDialog labelId="audio-heading" onClose={() => setSoundOpen(false)} className="sound-dialog"><AudioControls /></GlassDialog>}
   </main>
 }
 
 export function App() {
-  const [debug, setDebug] = useState(() => window.location.hash === '#/debug/m1')
+  const [route, setRoute] = useState(() => window.location.hash)
+  const debug = route === '#/debug/m1'
   useEffect(attachPageLifecycle, [])
   useEffect(() => {
-    const change = () => setDebug(window.location.hash === '#/debug/m1')
+    const change = () => setRoute(window.location.hash)
     window.addEventListener('hashchange', change)
     return () => window.removeEventListener('hashchange', change)
   }, [])
   useEffect(() => { setDebugMode(debug) }, [debug])
+  if (route === '#/demo/train') return <Suspense fallback={<main className="fatal-error">正在加载运镜 Demo…</main>}><TrainDemoPage /></Suspense>
   return debug ? <DebugPage /> : <ImmersivePage />
 }

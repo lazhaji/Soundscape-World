@@ -1,11 +1,15 @@
-import { useRef } from 'react'
+import { createContext, useContext, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Group, MeshStandardMaterial } from 'three'
 import { station } from '../app/runtime'
 import { FURNITURE, WALLS } from './stationLayout'
+import type { StationSimulation } from './StationSimulation'
+
+const StoreSimulation = createContext(station)
 
 interface BoxProps { position: [number, number, number]; size: [number, number, number]; color: string; fade?: boolean; emissive?: string }
 function Box({ position, size, color, fade = false, emissive = '#000000' }: BoxProps) {
+  const station = useContext(StoreSimulation)
   const material = useRef<MeshStandardMaterial>(null)
   useFrame((_, delta) => {
     if (!fade || !material.current) return
@@ -17,6 +21,7 @@ function Box({ position, size, color, fade = false, emissive = '#000000' }: BoxP
 }
 
 function SlidingDoor() {
+  const station = useContext(StoreSimulation)
   const left = useRef<Group>(null), right = useRef<Group>(null)
   const openness = useRef(0)
   useFrame((_, delta) => {
@@ -36,8 +41,8 @@ function SlidingDoor() {
 }
 
 /** Replace this visual module with GLB later; navigation and audio stay independent. */
-export function StoreModel() {
-  return <group name="store-model">
+export function StoreModel({ simulation = station }: { simulation?: StationSimulation }) {
+  return <StoreSimulation.Provider value={simulation}><group name="store-model">
     <Box position={[0, 0.015, -1]} size={[4.6, 0.03, 3.4]} color="#b4a88d" />
     {WALLS.map((wall, index) => <Box key={index} position={[(wall.minX + wall.maxX) / 2, 0.88, (wall.minZ + wall.maxZ) / 2]} size={[wall.maxX - wall.minX, 1.76, wall.maxZ - wall.minZ]} color={index < 3 ? '#718589' : '#a0b3b5'} fade={index === 1 || index >= 3} />)}
     <Box position={[0, 1.89, -1]} size={[5.05, 0.23, 3.95]} color="#344753" fade />
@@ -59,5 +64,5 @@ export function StoreModel() {
     })}
     <SlidingDoor />
     <pointLight position={[-0.4, 1.6, -1.2]} color="#ffd9a0" intensity={4} distance={5} decay={2} />
-  </group>
+  </group></StoreSimulation.Provider>
 }

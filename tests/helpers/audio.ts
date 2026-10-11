@@ -3,7 +3,7 @@ import { AudioEngine } from '../../src/audio/AudioEngine'
 import type { SoundBuffers } from '../../src/audio/generatedAudio'
 
 export function mockAudio() {
-  const makeSource = () => ({ start: vi.fn(), stop: vi.fn(), disconnect: vi.fn(), connect: vi.fn(), buffer: null, loop: false, loopStart: 0 })
+  const makeSource = () => ({ start: vi.fn(), stop: vi.fn(), disconnect: vi.fn(), connect: vi.fn(), buffer: null, loop: false, loopStart: 0, onended: null as (() => void) | null })
   const makeGain = () => ({ gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() })
   const sources: ReturnType<typeof makeSource>[] = [], gains: ReturnType<typeof makeGain>[] = []
   const listeners = new Set<() => void>()
@@ -16,6 +16,7 @@ export function mockAudio() {
     removeEventListener: vi.fn((_name: string, callback: () => void) => listeners.delete(callback)),
     createGain: vi.fn(() => { const gain = makeGain(); gains.push(gain); return gain }),
     createBufferSource: vi.fn(() => { const source = makeSource(); sources.push(source); return source }),
+    createBuffer: vi.fn((_channels: number, length: number, sampleRate: number) => { const data = new Float32Array(length); return { duration: length / sampleRate, getChannelData: () => data } }),
   }
   const factory = vi.fn(() => context as unknown as AudioContext)
   const buffers = vi.fn(() => ({ music: { duration: 32 }, rain: { duration: 8 }, train: { duration: 4 } }) as SoundBuffers)
