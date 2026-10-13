@@ -210,3 +210,11 @@ tests/unit, tests/integration, tests/e2e
 unmount/无障碍偏好变化会停止两条弹簧、销毁滤镜/ResizeObserver、删除事件监听与内联动画属性。异步导入用 revision + disposed 阻止关闭后初始化。引擎共享 SVG defs 和最多 48 个位移图缓存可保留；本轮十次开合活动 filter 均归零。类型声明约束已用 API；vendor JS 仍执行 ESLint，单独配置浏览器 globals。
 
 源码与构建均附 MIT 许可，无新增 npm 依赖。普通面板采用 CSS 模糊，高成本折射仅在手柄按住时可见；reduced-motion / reduced-transparency / 高对比 / forced-colors 均回退原生/CSS。实际浏览器结果与未验证平台见 TEST_PLAN 最新节。
+
+## M2 当前结构（2026-10-13，覆盖旧 UI 描述）
+
+App 主入口 → TrainDemoPage → LiquidStatus + TrainDemoScene。M1 DebugPage 继续独立。StatusGesture 是 DOM/音频无关的纯状态机；StatusSymbol 是原创七状态 SVG；features/status 适配既有模式权限/音乐/IndexedDB 契约。选择草稿仅保留在应用级列车模型，不写库、不影响声音。
+
+FrameOutput 使用 R3F 正优先级接管自动绘制，每帧更新完成后调用一次 gl.render，再同步调用 glassFrame。LiquidStatus 以复用的局部 2D canvas 裁片（含 2px frost 采样余量）交给官方 createGlassRenderer。没有 preserveDrawingBuffer、截图轮询、另一个 Three 场景或全屏后处理。DOM 负责原生可访问按钮与 Pointer Events，官方 spring 直接更新 DOM 和镜片参数，不逐帧 setState。
+
+选择时两个图形 context，离开后仅 Three；取消所有监听、计时、spring、observer 并释放玻璃 GL 资源。AudioEngine 仍为模块单例，选择 UI 生命周期不暂停/重启声音。确认时手势解锁音频、启动原导演器、串行保存兼容设置。当前证据与限制见 M2_REWORK_REPORT。

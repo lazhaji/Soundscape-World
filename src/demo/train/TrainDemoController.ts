@@ -1,17 +1,15 @@
 import { StationSimulation } from '../../world/StationSimulation'
 import { STATION } from '../../world/stationLayout'
+import type { StatusChoice } from '../../features/status'
 
 export type Weather = 'clear' | 'cloudy' | 'rain'
 export type Daylight = 'day' | 'dusk' | 'night'
-export type DemoChoice = 'focus' | 'sleep' | 'dnd' | 'calm' | 'happy' | 'anxious' | 'lonely'
+export type DemoChoice = StatusChoice
 export type DemoPhase = 'cruising' | 'arriving' | 'station' | 'returning'
 export type DemoCue = 'arrival' | 'opening' | 'closing' | 'cruising'
 export interface Environment { weather: Weather; daylight: Daylight }
 interface Snapshot { phase: DemoPhase; stage: string; environment: Environment; trip: number; choice: DemoChoice }
 
-export const CHOICES: Record<DemoChoice, string> = { focus: '专注', sleep: '睡眠', dnd: '勿扰', calm: '平静', happy: '愉悦', anxious: '焦虑', lonely: '孤独' }
-export const WEATHER_NAMES: Record<Weather, string> = { clear: '晴天', cloudy: '多云', rain: '小雨' }
-export const DAYLIGHT_NAMES: Record<Daylight, string> = { day: '白天', dusk: '黄昏', night: '夜晚' }
 export const WAITING_POINT = { x: -2.9, z: 2.5 }
 export const clamp = (value: number, min = 0, max = 1) => Math.max(min, Math.min(max, value))
 export const ease = (value: number) => { const t = clamp(value); return t * t * (3 - 2 * t) }

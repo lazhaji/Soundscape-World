@@ -207,10 +207,19 @@ function World({ reduced, onFade, onReady, onFailure }: { reduced: boolean; onFa
   </>
 }
 
-export default function TrainDemoScene(props: { onFade: (opacity: number) => void; onReady: () => void; onFailure: () => void }) {
+function FrameOutput({ onFrame }: { onFrame: (source: HTMLCanvasElement) => void }) {
+  useFrame(({ gl, scene, camera }) => {
+    gl.render(scene, camera)
+    onFrame(gl.domElement)
+  }, 1)
+  return null
+}
+
+export default function TrainDemoScene(props: { onFade: (opacity: number) => void; onReady: () => void; onFailure: () => void; onFrame: (source: HTMLCanvasElement) => void }) {
   const visible = usePageVisible(), reduced = useReducedMotion()
   useEffect(() => { if (!visible) audioEngine.pauseForBackground() }, [visible])
   return <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} frameloop={visible ? 'always' : 'never'} camera={{ position: CABIN_SHOT.eye, fov: CABIN_SHOT.fov, near: 0.04, far: 180 }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
     <World {...props} reduced={reduced} />
+    <FrameOutput onFrame={props.onFrame} />
   </Canvas>
 }

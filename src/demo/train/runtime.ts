@@ -1,6 +1,8 @@
 import { audioEngine } from '../../audio/engine'
 import { journey, setDebugMode } from '../../app/runtime'
 import { TrainDemoController } from './TrainDemoController'
+import { accessSettings } from '../../db/settings'
+import { statusFromSettings, statusSettings, type StatusChoice } from '../../features/status'
 
 // Runtime ownership survives React/Canvas remounts. No second AudioContext.
 export const trainDemo = new TrainDemoController(Math.random, (cue) => {
@@ -36,9 +38,21 @@ export function activateDemo() {
   }
 }
 
-export function confirmDemoChoice() {
-  const { choice } = trainDemo.getSnapshot()
-  audioEngine.setModeSettings({ mode: choice === 'sleep' ? 'sleep' : choice === 'focus' ? 'focus' : 'relax', mood: choice === 'anxious' ? 'anxious' : choice === 'happy' ? 'happy' : choice === 'lonely' ? 'lonely' : 'calm', doNotDisturb: choice === 'dnd' })
+let loaded: Promise<void> | undefined
+let saveQueue: Promise<unknown> = Promise.resolve()
+export function loadTrainSettings() {
+  loaded ??= accessSettings('read').then((settings) => { trainDemo.choose(statusFromSettings(settings)) })
+  return loaded
+}
+
+export function confirmDemoChoice(choice: StatusChoice): Promise<void> {
+  if (trainDemo.getSnapshot().phase !== 'cruising') return Promise.resolve()
+  trainDemo.choose(choice)
+  const settings = statusSettings(choice)
+  audioEngine.setModeSettings(settings)
   void audioEngine.startFromGesture()
   trainDemo.depart()
+  const save = saveQueue.catch(() => {}).then(() => accessSettings('write', settings)).then(() => {})
+  saveQueue = save
+  return save
 }

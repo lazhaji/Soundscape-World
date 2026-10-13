@@ -1,7 +1,9 @@
 # Soundscape Railway — Session 交接
 
-> 更新：2026-10-11（Asia/Shanghai）｜本轮：GrillMe 方案收口后，用户要求「60B 先做 demo」。
-> 结论：新增独立 `#/demo/train` 运镜 Demo；正式入口仍是 10-10 面板，最终胶囊和新存储尚未整合。最新增量见第 9 节；历史验证保留。M1 已验收，M2 新 Demo 等待用户体验验收；M3–M7 未开始。
+> **2026-10-13 当前交接**：旧 M2 交付被用户驳回；现已将官方 WebGL 状态控件接入主入口。当前实现、证据与限制见本文第 10 节及 [M2_REWORK_REPORT.md](M2_REWORK_REPORT.md)。第 2–9 节保留历史记录，不再代表当前 UI。M2 等待用户视觉/真机验收；M3–M7 未开始。
+
+> 历史更新：2026-10-11（Asia/Shanghai）｜本轮：GrillMe 方案收口后，用户要求「60B 先做 demo」。
+> 历史结论：新增独立 `#/demo/train` 运镜 Demo；正式入口仍是 10-10 面板，最终胶囊和新存储尚未整合。最新增量见第 9 节；历史验证保留。M1 已验收，M2 新 Demo 等待用户体验验收；M3–M7 未开始。
 
 ## 1. 新 Session 从这里开始
 
@@ -152,3 +154,20 @@ Windows，Node.js 24.12.0 / npm 11.6.2；现有依赖；Vitest 5.0.3。浏览器
 - 本轮基线 `main / c7f5d1f`，开工工作区干净。修改限于 M2 Demo、共用音频/商店的必要接口、测试与文档；不改依赖/lockfile、用户参考素材、数据库内容。最终提交/状态见 Git 与交付回复；不推送或部署。
 - 当前预览 `http://127.0.0.1:4180/#/demo/train`；重启命令：`npm run dev -- --strictPort --port 4180`。
 - 下一步先由用户观看并确认镜头/节奏，再接广播素材、整合胶囊与新设置。当前停在 M2，不自动开始 M3。
+
+
+## 10. M2 驳回返工（2026-10-13，当前实际状态）
+
+- 先只读审计八项问题，再做独立官方镜片证明页，再集成和浏览器测试。完整审计、文件列表、源码哈希、截图/录屏、复跑命令见 `docs/M2_REWORK_REPORT.md`。
+- 主入口与 `#/demo/train` 共用现有列车页面；正常选择阶段只显示行驶背景 + 当前状态符号/标题；长按 600ms 同一镜片向上展开七状态，选择后左滑 40% 并松手确认。无旧品牌、说明、下拉框和独立确认按钮。站内仍可点击地面、使用声音面板并返回列车，Demo 说明留在站内。
+- `LiquidStatus.tsx` / `StatusGesture.ts` / `StatusSymbol.tsx` / `liquid-status.css` 为当前控件。`ModeDialog.tsx`、`LiquidSwitch.tsx`、`mode-dialog.css` 已移除，不要重新恢复。`features/status.ts` 负责七状态与原 ModeSettings 的适配。
+- 官方 `liquid-glass.js` 原文件保留，新增原样 `glass-webgl.js`。Three 每帧渲染后同步裁取局部，官方 renderer 折射；展开使用原生 Canvas2D 2px 输入磨砂。选择阶段 2 个 canvas，离开后 1 个，不再适用历史单 Canvas 的选择界面描述。销毁弹簧、监听器、observer、GL 对象与玻璃 context。
+- 只在确认时写原 IndexedDB schema/key；兼容旧设置，无清库或新镜像。临时草稿不改音频，图形重试保留草稿。睡眠无旋律、焦虑 .65、专注/睡眠/勿扰社交禁用均保留；AudioEngine 和 M1 算法未改。
+- 工程：lint/typecheck/build 通过；14 files / 67 tests。Three 913.99KB 分块警告与 Clock 弃用提示保留。无新项目依赖/lockfile 改动。
+- 实际 Playwright Chromium 154：桌面与 390×844 触摸模拟、七状态、Pressing、长按、短滑/拖回/touchCancel/纵向/外部/Escape 取消、有效左滑、完整到站与返程、刷新恢复、未确认不保存；正常 pageerror=0。320×740/844×390/1280×800、键盘焦点循环、减少动态与高对比通过。
+- 音频：睡眠 policyGain=0；往返 sourceBuilds=1；实际触控地面进店 musicGain≈1、出店=0，时间继续。玻璃/场景 context loss 均可重试，M1 调试页实际加载并返回通过。
+- 实际视频：`output/playwright/m2-touch-journey.webm`（原生触控取消+往返）；`m2-liquid-journey.webm`（鼠标回弹+到站）。截图见报告。录屏无音轨；听感未验证。临时验证页面/脚本留在忽略的 output 目录，不进发布包。
+- Git：基线 main/e784290，开工干净；工作分支 codex/m2-liquid-status，返工工作保存为本地提交，具体分支/SHA/最终状态以 `git log -1` 和 `git status --short` 为准。未推送、未部署。预览开发 4181、生产 4182，仅本机。
+- 未验证：真实 Safari/iOS、Android、Firefox/WebKit；系统返回手势、锁屏、听感、10 分钟持续帧率/功耗与长期内存。DPR=1 小玻璃与官方高 DPI 示例、SVG 与 WebGL 边缘采样仍有差异，不能称逐像素复现。
+
+下一步仅为用户 M2 视觉验收和真机测试。不得把工程通过写成用户已验收，不启动 M3–M7。

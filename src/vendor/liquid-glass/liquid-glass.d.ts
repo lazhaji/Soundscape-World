@@ -2,7 +2,7 @@
 export interface GlassOptions {
   x?: number; y?: number; width?: number; height?: number; radius?: number
   refraction?: number; bezel?: number; curvature?: number; chroma?: number
-  specular?: number; mapScale?: number; clip?: boolean; hidden?: boolean
+  specular?: number; specularWidth?: number; mapScale?: number; clip?: boolean; hidden?: boolean
 }
 export interface GlassController {
   update(options: GlassOptions): void

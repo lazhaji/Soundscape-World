@@ -1,39 +1,10 @@
-.train-demo { position: fixed; inset: 0; overflow: hidden; background: #23363e; color: #f6f3e9; font-family: Inter, "Microsoft YaHei", system-ui, sans-serif; }
+.train-demo { position: fixed; inset: 0; overflow: hidden; background: #23363e; color: #f6f3e9; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
 .train-demo-canvas, .train-demo-curtain { position: absolute; inset: 0; }
 .train-demo-curtain { pointer-events: none; background: #283a3e; opacity: 0; z-index: 2; }
-.train-demo-header { position: absolute; inset: max(22px, env(safe-area-inset-top)) 28px auto; display: flex; justify-content: space-between; align-items: center; gap: 16px; text-shadow: 0 1px 12px #122f36aa; }
-.train-demo-header a { color: inherit; text-decoration: none; font-size: 15px; font-weight: 650; letter-spacing: .2em; }
-.train-demo-header a span { display: block; margin-top: 7px; font-size: 8px; letter-spacing: .15em; font-weight: 400; }
-.train-demo button, .train-demo select { color: inherit; font: inherit; cursor: pointer; }
-.train-demo button:focus-visible, .train-demo select:focus-visible, .train-demo a:focus-visible { outline: 2px solid #f5d48e; outline-offset: 4px; }
-.train-demo button:disabled, .train-demo select:disabled { opacity: .5; cursor: wait; }
-.train-demo-sound { min-height: 44px; padding: 0 17px; border: 1px solid #fff3; border-radius: 30px; background: #263f4266; backdrop-filter: blur(10px); font-size: 11px !important; }
-.train-demo-meta { position: absolute; top: calc(max(22px, env(safe-area-inset-top)) + 68px); left: 28px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 10px; letter-spacing: .07em; text-shadow: 0 1px 10px #142a37; }
-.train-demo-badge { padding: 5px 8px; border: 1px solid #ffffff4d; border-radius: 4px; font-size: 9px; }
-.train-demo-bottom { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 40px)); text-align: center; }
-.train-demo-caption { margin-bottom: 18px; text-shadow: 0 2px 20px #162f3dbb, 0 1px 3px #172b3a; pointer-events: none; }
-.train-demo-caption > span { font-size: 9px; letter-spacing: .25em; }
-.train-demo-caption h1 { margin: 9px 0 0; font-size: clamp(15px, 2vw, 20px); font-weight: 450; letter-spacing: .035em; line-height: 1.5; }
-.train-demo-controls { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 16px 14px 23px; background: #233d42e8; border: 1px solid #e7e5d938; border-radius: 24px; box-shadow: 0 10px 30px #142d3d24; }
-.train-demo-controls label { text-align: left; font-size: 9px; color: #c3d2cf; letter-spacing: .08em; }
-.train-demo-controls select { display: block; min-width: 100px; margin-top: 3px; min-height: 30px; padding: 0 18px 0 0; border: 0; background: transparent; font-size: 17px; color: #fff9e9; }
-.train-demo-controls select option { background: #263f42; }
-.train-demo-controls button { min-height: 48px; padding: 12px 18px; border-radius: 16px; border: 0; background: transparent; font-size: 12px; white-space: nowrap; }
-.train-demo-controls .train-demo-primary { background: #e8dbc0; color: #29464b; font-weight: 600; }
-.train-demo-primary span { margin-left: 12px; font-size: 17px; }
-.train-demo-station-controls { padding: 12px; gap: 8px; }
-.train-demo-station-controls button { flex: 1; }
-.train-demo-footnote { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 9px; font-size: 9px; text-shadow: 0 1px 5px #152f35; }
-.train-demo-footnote button { border: 0; background: transparent; padding: 10px 3px; min-height: 34px; text-decoration: underline; font-size: 9px; }
-.train-demo-in-flight { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 58px; font-size: 11px; text-shadow: 0 1px 8px #16353c; }
-.train-demo-in-flight i { width: 6px; height: 6px; border-radius: 100%; background: #eee5cb; box-shadow: 0 0 14px #ffe4ac; }
-.train-demo-details { text-align: left; padding: 16px 20px; border-radius: 18px; background: #21393af5; font-size: 11px; line-height: 1.8; max-height: min(240px, 34dvh); overflow-y: auto; }
-.train-demo-details p { margin: 0 0 10px; }
-.train-demo-details p:last-child { margin-bottom: 0; }
-.train-demo-loading, .train-demo-error { position: absolute; z-index: 3; top: 40%; left: 50%; transform: translate(-50%, -50%); width: min(330px, calc(100% - 48px)); background: #243d40ee; border: 1px solid #ffffff40; padding: 25px; border-radius: 20px; font-size: 12px; line-height: 1.8; }
+.train-demo-loading, .train-demo-error { position: absolute; z-index: 5; top: 40%; left: 50%; transform: translate(-50%, -50%); width: min(330px, calc(100% - 48px)); background: #243d40ee; border: 1px solid #ffffff40; padding: 25px; border-radius: 20px; font-size: 12px; line-height: 1.8; }
 .train-demo-loading strong, .train-demo-error strong { font-size: 16px; display: block; }
 .train-demo-loading button, .train-demo-error button { padding: 10px 15px; color: #2c4447; border: 0; border-radius: 8px; background: #e7d9bc; }
-.train-demo-notice { border-radius: 10px; padding: 9px 12px; background: #203b40e8; font-size: 11px; line-height: 1.6; }
-@media (max-width: 480px) { .train-demo-header { left: 20px; right: 20px; } .train-demo-meta { left: 20px; gap: 8px; } .train-demo-controls { gap: 8px; padding-left: 16px; } .train-demo-controls button { padding: 12px 14px; } }
-@media (max-height: 500px) and (orientation: landscape) { .train-demo-header { top: 12px; left: 20px; right: 20px; } .train-demo-meta { top: 68px; left: 20px; } .train-demo-bottom { left: auto; right: 20px; transform: none; width: 300px; bottom: 8px; } .train-demo-caption { margin-bottom: 8px; } .train-demo-caption h1 { font-size: 13px; margin-top: 4px; } .train-demo-controls { padding: 8px 12px; } .train-demo-footnote { margin-top: 2px; } }
-@media (forced-colors: active) { .train-demo-controls, .train-demo-details, .train-demo-sound { background: Canvas; color: CanvasText; border: 1px solid ButtonText; } .train-demo-controls .train-demo-primary { background: ButtonFace; color: ButtonText; } }
+.train-station-tools { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(350px, calc(100% - 40px)); text-align: center; }
+.train-station-tools button { color: #f6f3e9; border: 1px solid #ffffff40; background: #243d40df; border-radius: 18px; padding: 10px 24px; margin: 0 4px; }
+.train-station-tools p { margin-top: 10px; font-size: 10px; text-shadow: 0 1px 3px #14262b; }
+.train-notices { position: absolute; top: 24px; left: 24px; right: 24px; text-align: center; font-size: 13px; text-shadow: 0 1px 3px #14262b; }
