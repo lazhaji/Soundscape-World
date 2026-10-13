@@ -1,0 +1,50 @@
+.player-dialog { overflow: hidden; background: #13273d; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.player-dialog::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: #06122355; }
+.player-glass { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.player-dialog .dialog-content { max-height: inherit; overflow: auto; overscroll-behavior: contain; background: #0c2035d9; scrollbar-width: thin; }
+.player-dialog .close-dialog { z-index: 2; background: #122a40ed; }
+.player-dialog[data-optics="fallback"] .dialog-content { background: #13273d; }
+.player { min-width: 0; }
+.player h2 { margin-top: 20px; font-family: 'Songti SC', 'SimSun', serif; font-weight: 400; }
+.player-place { font-size: 11px; color: #c1d4e1; margin: 10px 0 16px; line-height: 1.8; }
+.player .track-card { margin-top: 0; padding: 18px 0; }
+.player .track-card > div { min-width: 0; }
+.player .track-card strong { font-size: 18px; overflow-wrap: anywhere; }
+.player .track-card span { line-height: 1.8; color: #c1d4e1; }
+.player .sound-button { margin: 0; min-height: 48px; }
+.player-actions { display: flex; gap: 8px; margin-top: 10px; }
+.player-actions button, .timer-presets button { flex: 1; min-width: 0; border: 1px solid #b2d3e938; border-radius: 12px; color: #eff5f8; background: #b2d3e908; font-size: 12px; padding: 4px 6px; }
+.player [aria-pressed="true"] { border-color: #f3c47d; color: #f3c47d; background: #f3c47d14; }
+.player .audio-status { min-height: 36px; margin-top: 12px; color: #c1d4e1; }
+.player .fine-print { padding-left: 0; color: #bed0dd; font-size: 11px; }
+.player .volume-control { color: #d2e1eb; }
+.player-section { border-top: 1px solid #b2d3e929; margin-top: 12px; }
+.player-section summary { min-height: 48px; padding: 14px 0; cursor: pointer; font-size: 13px; }
+.player-section summary span { float: right; font-size: 11px; color: #c1d4e1; margin-top: 2px; }
+.player summary:focus-visible, .player select:focus-visible, .player input:focus-visible { outline: 2px solid #f3c47d; outline-offset: 3px; }
+.timer-presets { display: flex; gap: 5px; margin-bottom: 12px; }
+.timer-presets button { font-size: 11px; padding: 2px; }
+.player-field { display: flex; align-items: center; gap: 10px; font-size: 12px; min-height: 52px; }
+.player-field input, .player-field select { flex: 1; min-width: 0; max-width: 100%; border: 1px solid #b2d3e940; border-radius: 8px; background: #142a40; color: #eff5f8; padding: 10px 7px; font: inherit; min-height: 44px; }
+.track-list { list-style: none; margin: 8px 0; padding: 0; }
+.track-list li { display: flex; gap: 6px; align-items: center; border-bottom: 1px solid #b2d3e91a; }
+.track-select { flex: 1; min-width: 0; padding: 12px 8px; text-align: left; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #eff5f8; }
+.track-select strong, .track-select small { display: block; overflow-wrap: anywhere; }
+.track-select strong { font-weight: 500; font-size: 13px; }
+.track-select small { font-size: 10px; color: #c1d4e1; margin-top: 5px; }
+.track-select[aria-current] { border-color: #f3c47d80; background: #f3c47d0b; }
+.track-delete { padding: 8px; border: 0; background: transparent; color: #e9b8a2; font-size: 11px; }
+.import-box { border-top: 1px solid #b2d3e929; padding-top: 8px; margin-top: 8px; }
+.import-box h3 { font-size: 13px; font-weight: 500; }
+.import-check { display: flex; align-items: center; gap: 8px; font-size: 12px; min-height: 44px; line-height: 1.7; }
+.import-check input { width: 18px; height: 18px; accent-color: #f3c47d; flex-shrink: 0; }
+.file-label { position: relative; display: grid; place-items: center; margin-top: 10px; min-height: 46px; overflow: hidden; border: 1px dashed #b2d3e96b; border-radius: 12px; font-size: 12px; }
+.file-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.delete-confirm { background: #a96e491f; padding: 12px; border-radius: 12px; font-size: 12px; line-height: 1.8; }
+.player-footnote { border-top: 1px solid #b2d3e926; padding-top: 12px; }
+@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) { .player-dialog .dialog-content { background: #10243b; } }
+@media (forced-colors: active) {
+  .player-glass { display: none; }
+  .player-dialog .dialog-content, .player-dialog, .player-field input, .player-field select { background: Canvas; color: CanvasText; }
+  .player [aria-pressed="true"], .track-select[aria-current] { outline: 2px solid Highlight; }
+}

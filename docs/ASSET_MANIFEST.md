@@ -73,3 +73,15 @@
 用户本轮视频 `C:\Users\hanying\Pictures\e6fcb9a5f9dcf51d7cf1e02852fa1eba.mp4` 只作为靠窗构图与行驶参考，未复制或打包；未将片中个人水印用于项目。
 
 **日文广播仍未取得音频资产。** 文案、30–45 秒调度与 [VOICEVOX Nemo 官方制作候选及条款](https://voicevox.hiroshiba.jp/nemo/term/)记录在 `M2_REDESIGN_SPEC.md`。未安装合成器、未下载声音、未声称已经完成具体音色的授权登记。接入时须补充实际音色、文件、工具版本、取得日期及署名；最终只分发固定音频，不把语音工具/模型加入网页。
+
+## M3 实际运行音源（2026-10-14）
+
+| assetId | 位置 / 格式 | 作者与来源 | 许可、分发与标识 |
+|---|---|---|---|
+| `m1-rainlight` | 既有 `generatedAudio.ts:createMusic/fillDemoMusic`，32 秒/22,050 Hz/单声道 PCM | 本项目原创，复用 M1 合成编曲 | 沿用 M1 登记；可随代码分发，无第三方采样；目录与 UI 标为原创 Demo |
+| `m3-white` | `noise.ts:fillWhiteNoise` + `generatedAudio.ts:createNoise`，16 秒缓冲/22,050 Hz/单声道 | 本项目原创随机 PCM；0.12 秒接缝处理，运行时合成 | 无外部素材或许可依赖，可随项目代码修改/分发；UI 明确本地合成 Demo |
+| `m3-pink` | `noise.ts:fillPinkNoise` + `generatedAudio.ts:createNoise`，16 秒缓冲/22,050 Hz/单声道 | 本项目原创多个频带的滤波噪音叠加，近似 1/f 频谱；同样处理接缝 | 无引用第三方实现/录音，代码本身为来源；可随项目修改/分发，无第三方署名；UI 标为本地合成 Demo |
+
+M3 无新增第三方歌曲或远端音源。上述原创资产无需外部取得链接/第三方授权；仅运行时内存生成，不打包音频录音文件。官方 liquid-glass 引擎及其 MIT notice 保持原样，播放器复用既有文件，未新增第三方渲染资产。
+
+用户导入文件只在该设备 IndexedDB 中保存，界面要求用户有权使用；不能把个人导入动作当作项目已取得再分发权。用户文件不会写入仓库/public/dist 或自动上传。测试用短 WAV 为验证脚本本地生成正弦波，仅存在隔离浏览器测试环境，不进入产品曲库或发布资源。

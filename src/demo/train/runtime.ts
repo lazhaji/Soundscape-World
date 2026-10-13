@@ -1,4 +1,5 @@
 import { audioEngine } from '../../audio/engine'
+import { player } from '../../audio/player'
 import { journey, setDebugMode } from '../../app/runtime'
 import { TrainDemoController } from './TrainDemoController'
 import { accessSettings } from '../../db/settings'
@@ -49,7 +50,7 @@ export function confirmDemoChoice(choice: StatusChoice): Promise<void> {
   if (trainDemo.getSnapshot().phase !== 'cruising') return Promise.resolve()
   trainDemo.choose(choice)
   const settings = statusSettings(choice)
-  audioEngine.setModeSettings(settings)
+  player.beginSession(settings)
   void audioEngine.startFromGesture()
   trainDemo.depart()
   const save = saveQueue.catch(() => {}).then(() => accessSettings('write', settings)).then(() => {})

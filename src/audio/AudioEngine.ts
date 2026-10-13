@@ -1,18 +1,20 @@
-import { createDoorSound, createGeneratedAudio, createRain, createWind, MUSIC_DURATION } from './generatedAudio'
+import { createDoorSound, createGeneratedAudio, createMusic, createNoise, createRain, createWind, MUSIC_DURATION } from './generatedAudio'
 import type { SoundBuffers } from './generatedAudio'
 import { SmoothGain, ZONE_MIX } from './mixer'
 import type { AudioZone } from './mixer'
 import { DEFAULT_SETTINGS, musicPolicy } from '../features/modes'
 import type { ModeSettings } from '../features/modes'
+import { CATALOG, isEligible, type Track } from './catalog'
+import type { TimerAction } from './SleepTimer'
 
 export type AudioStatus = 'idle' | 'starting' | 'playing' | 'paused' | 'background' | 'interrupted' | 'error' | 'unsupported'
-export interface AudioSnapshot { status: AudioStatus; message: string; zone: AudioZone; musicVolume: number; rainVolume: number; settings: ModeSettings }
+export interface AudioSnapshot { status: AudioStatus; message: string; zone: AudioZone; musicVolume: number; rainVolume: number; settings: ModeSettings; musicOff: boolean }
 type ContextFactory = () => AudioContext | null
 type BufferFactory = (context: AudioContext) => SoundBuffers
 interface Graph {
   master: SmoothGain; musicUser: SmoothGain; rainUser: SmoothGain; effects: SmoothGain
   musicZone: SmoothGain; rainZone: SmoothGain; musicMode: SmoothGain; trainZone: SmoothGain; trainMotor: SmoothGain
-  music: AudioBufferSourceNode; train: AudioBufferSourceNode
+  music: AudioBufferSourceNode | null; train: AudioBufferSourceNode
   currentWeather: WeatherLayer; weatherLayers: Set<WeatherLayer>
 }
 interface WeatherLayer { source: AudioBufferSourceNode; fade: SmoothGain }
@@ -31,12 +33,17 @@ export class AudioEngine {
   private offset = 0
   private startedAt = 0
   private sourceBuilds = 0
+  private track: Track | null = CATALOG[0]!
+  private importedBuffer: AudioBuffer | null = null
+  private musicEnded: (() => void) | null = null
+  private fadeTimeout: ReturnType<typeof setTimeout> | undefined
+  private fadeGeneration = 0
   private trainMoving = true
   private weather: 'rain' | 'wind' = 'rain'
   private ambientMix: { rain: number; train: number; rolling: number } | null = null
   private effects = new Set<AudioBufferSourceNode>()
   private listeners = new Set<() => void>()
-  private snapshot: AudioSnapshot = { status: 'idle', message: '尚未启声 · 点击后开始聆听', zone: 'outside', musicVolume: 0.55, rainVolume: 0.7, settings: { ...DEFAULT_SETTINGS } }
+  private snapshot: AudioSnapshot = { status: 'idle', message: '尚未启声 · 点击后开始聆听', zone: 'outside', musicVolume: 0.55, rainVolume: 0.7, settings: { ...DEFAULT_SETTINGS }, musicOff: false }
 
   constructor(private readonly contextFactory: ContextFactory = createBrowserContext, private readonly bufferFactory: BufferFactory = createGeneratedAudio) {}
   getSnapshot = (): AudioSnapshot => this.snapshot
@@ -46,16 +53,81 @@ export class AudioEngine {
     this.listeners.forEach((listener) => listener())
   }
 
-  getPlaybackSeconds = (): number => this.offset + (this.graph && this.context ? Math.max(0, this.context.currentTime - this.startedAt) : 0)
+  getPlaybackSeconds = (): number => this.offset + (this.graph?.music && this.context ? Math.max(0, this.context.currentTime - this.startedAt) : 0)
   getDiagnostics = () => ({
-    contextState: this.context?.state ?? 'absent', musicSources: this.graph ? 1 : 0, rainSources: this.graph ? 1 : 0,
+    contextState: this.context?.state ?? 'absent', musicSources: this.graph?.music ? 1 : 0, rainSources: this.graph ? 1 : 0,
     sourceBuilds: this.sourceBuilds, elapsed: this.getPlaybackSeconds(),
     musicGain: this.graph?.musicZone.value(this.context?.currentTime ?? 0) ?? ZONE_MIX[this.snapshot.zone].music,
     rainGain: this.graph?.rainZone.value(this.context?.currentTime ?? 0) ?? ZONE_MIX[this.snapshot.zone].rain,
     trainSources: this.graph ? 1 : 0,
     trainGain: this.graph?.trainZone.value(this.context?.currentTime ?? 0) ?? ZONE_MIX[this.snapshot.zone].train,
-    policyGain: this.graph?.musicMode.value(this.context?.currentTime ?? 0) ?? musicPolicy(this.snapshot.settings).level,
+    policyGain: this.graph?.musicMode.value(this.context?.currentTime ?? 0) ?? this.policyLevel(),
+    trackId: this.track?.id ?? null, musicOff: this.snapshot.musicOff,
   })
+
+  private policyLevel(): number {
+    return this.snapshot.musicOff || !this.track || !isEligible(this.track, this.snapshot.settings.mode) ? 0 : musicPolicy(this.snapshot.settings, this.track.eligibleModes).level
+  }
+  setOnMusicEnded(callback: (() => void) | null): void { this.musicEnded = callback }
+  selectTrack(track: Track | null, buffer: AudioBuffer | null = null): void {
+    if (track && !isEligible(track, this.snapshot.settings.mode)) throw new Error('该曲目不适用于当前状态')
+    if (track?.source === 'imported' && !buffer) throw new Error('本地音频未能读取')
+    this.track = track; this.importedBuffer = buffer
+    this.offset = 0
+    if (this.graph && this.context) {
+      this.stopMusic()
+      this.startedAt = this.context.currentTime
+      if (track) {
+        const node = this.context.createBufferSource()
+        try {
+          node.buffer = this.musicBuffer(this.context)
+          node.loop = track.source === 'generated'
+          node.loopStart = track.generator === 'white' || track.generator === 'pink' ? 0.12 : 0
+          node.connect(this.graph.musicZone.node)
+          node.onended = () => {
+            if (this.graph?.music !== node) return
+            this.offset = track.duration; this.graph.music = null; node.disconnect(); node.onended = null
+            this.musicEnded?.()
+          }
+          node.start(this.context.currentTime, node.loopStart)
+          this.graph.music = node
+        } catch (error) { node.disconnect(); throw error }
+      }
+      this.graph.musicMode.set(0, this.context.currentTime, 0)
+      this.graph.musicMode.set(this.policyLevel(), this.context.currentTime, 0.12)
+    }
+    this.publish({})
+  }
+  private musicBuffer(context: AudioContext, fallback?: AudioBuffer): AudioBuffer {
+    if (this.importedBuffer) return this.importedBuffer
+    if (this.track?.generator === 'white' || this.track?.generator === 'pink') return createNoise(context, this.track.generator)
+    return fallback ?? createMusic(context)
+  }
+  private stopMusic(): void {
+    const source = this.graph?.music
+    if (!source) return
+    source.onended = null
+    try { source.stop() } catch { /* Already ended. */ }
+    source.disconnect(); source.buffer = null; this.graph!.music = null
+  }
+  enableMusic = (): void => {
+    this.publish({ musicOff: false })
+    if (this.graph && this.context) this.graph.musicMode.set(this.policyLevel(), this.context.currentTime, 0.3)
+  }
+  finishTimer = (action: TimerAction): void => {
+    if (action === 'music') {
+      this.publish({ musicOff: true, message: '定时已结束 · 音乐关闭，环境声保留' })
+      if (this.graph && this.context) this.graph.musicMode.set(0, this.context.currentTime, 1.5)
+      return
+    }
+    this.cancelFade()
+    const generation = this.fadeGeneration
+    if (!this.graph || this.context?.state !== 'running' || this.snapshot.status !== 'playing') { this.pause(); return }
+    this.graph.master.set(0, this.context.currentTime, 1.5)
+    this.publish({ message: '定时已结束 · 全部声音正在淡出' })
+    this.fadeTimeout = setTimeout(() => { if (generation === this.fadeGeneration) this.pause() }, 1550)
+  }
+  private cancelFade(): void { clearTimeout(this.fadeTimeout); this.fadeTimeout = undefined; this.fadeGeneration++ }
 
   setWorldZone = (zone: AudioZone): void => {
     if (zone === this.snapshot.zone) return
@@ -69,7 +141,7 @@ export class AudioEngine {
 
   setModeSettings = (settings: ModeSettings): void => {
     this.publish({ settings: { ...settings } })
-    if (this.graph && this.context) this.graph.musicMode.set(musicPolicy(settings).level, this.context.currentTime)
+    if (this.graph && this.context) this.graph.musicMode.set(this.policyLevel(), this.context.currentTime)
   }
 
   setTrainMoving = (moving: boolean): void => {
@@ -158,6 +230,8 @@ export class AudioEngine {
   }
 
   startFromGesture = (): Promise<void> => {
+    if (this.fadeTimeout !== undefined && this.graph && this.context) this.graph.master.set(0.7, this.context.currentTime, 0.3)
+    this.cancelFade()
     if (this.pending) return this.pending
     if (this.snapshot.status === 'playing' && this.context?.state === 'running') return Promise.resolve()
     const revision = ++this.revision
@@ -204,21 +278,29 @@ export class AudioEngine {
       const mix = ZONE_MIX[this.snapshot.zone]
       const master = gain(0), musicUser = gain(this.snapshot.musicVolume), rainUser = gain(this.snapshot.rainVolume)
       const effects = gain(0.5), musicZone = gain(mix.music), rainZone = gain(mix.rain)
-      const musicMode = gain(musicPolicy(this.snapshot.settings).level), trainZone = gain(mix.train), trainMotor = gain(this.trainMoving ? 0.5 : 0.08)
+      const musicMode = gain(this.policyLevel()), trainZone = gain(mix.train), trainMotor = gain(this.trainMoving ? 0.5 : 0.08)
       musicZone.node.connect(musicMode.node); musicMode.node.connect(musicUser.node); musicUser.node.connect(master.node)
       rainZone.node.connect(rainUser.node); rainUser.node.connect(master.node)
-      trainZone.node.connect(trainMotor.node); trainMotor.node.connect(master.node)
-      effects.node.connect(master.node); master.node.connect(context.destination)
+      trainZone.node.connect(trainMotor.node); trainMotor.node.connect(rainUser.node)
+      effects.node.connect(rainUser.node); master.node.connect(context.destination)
       const source = (buffer: AudioBuffer, target: SmoothGain) => {
         const node = context.createBufferSource(); sources.push(node); nodes.push(node)
         node.buffer = buffer; node.loop = true; node.connect(target.node)
         return node
       }
-      const music = source(buffers.music, musicZone), weatherFade = gain(1), rain = source(this.weather === 'wind' ? createWind(context) : buffers.rain, weatherFade), train = source(buffers.train, trainZone)
+      const music = this.track ? source(this.musicBuffer(context, buffers.music), musicZone) : null, weatherFade = gain(1), rain = source(this.weather === 'wind' ? createWind(context) : buffers.rain, weatherFade), train = source(buffers.train, trainZone)
       weatherFade.node.connect(rainZone.node)
       rain.loopStart = 0.12
       const now = context.currentTime
-      music.start(now, this.offset % MUSIC_DURATION)
+      if (music) {
+        music.loop = this.track?.source === 'generated'
+        music.loopStart = this.track?.generator === 'white' || this.track?.generator === 'pink' ? 0.12 : 0
+        music.onended = () => {
+          if (this.graph?.music !== music) return
+          this.offset = this.track?.duration ?? 0; this.graph.music = null; music.disconnect(); music.onended = null; this.musicEnded?.()
+        }
+        music.start(now, Math.max(music.loopStart, this.offset % (this.track?.duration ?? MUSIC_DURATION)))
+      }
       rain.start(now, 0.12)
       train.start(now)
       this.startedAt = now
@@ -241,6 +323,7 @@ export class AudioEngine {
   }
 
   pause = (background = false): void => {
+    this.cancelFade()
     this.stopEffects()
     ++this.revision
     this.pending = null
@@ -263,7 +346,8 @@ export class AudioEngine {
     if (!this.graph) return
     this.offset = this.getPlaybackSeconds()
     const graph = this.graph
-    for (const source of [graph.music, graph.train]) { try { source.stop() } catch { /* Already stopped. */ }; source.disconnect() }
+    this.stopMusic()
+    try { graph.train.stop() } catch { /* Already stopped. */ }; graph.train.disconnect()
     for (const { source, fade } of graph.weatherLayers) { try { source.stop() } catch { /* Already stopped. */ }; source.disconnect(); fade.node.disconnect() }
     for (const gain of [graph.master, graph.musicUser, graph.rainUser, graph.effects, graph.musicZone, graph.rainZone, graph.musicMode, graph.trainZone, graph.trainMotor]) gain.node.disconnect()
     this.graph = null
@@ -272,6 +356,7 @@ export class AudioEngine {
   async dispose(): Promise<void> {
     this.pause()
     this.releaseGraph()
+    this.importedBuffer = null; this.musicEnded = null
     const context = this.context
     this.context = null
     context?.removeEventListener('statechange', this.onContextStateChange)

@@ -1,4 +1,4 @@
-import { fillWhiteNoise } from './noise'
+import { fillPinkNoise, fillWhiteNoise } from './noise'
 
 export const MUSIC_DURATION = 32
 export const GENERATED_SAMPLE_RATE = 22050
@@ -41,8 +41,7 @@ export function fillRain(samples: Float32Array, sampleRate: number): void {
 }
 
 export function createGeneratedAudio(context: AudioContext): SoundBuffers {
-  const music = context.createBuffer(1, MUSIC_DURATION * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
-  fillDemoMusic(music.getChannelData(0), GENERATED_SAMPLE_RATE)
+  const music = createMusic(context)
   const rain = createRain(context)
   const train = context.createBuffer(1, 4 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
   fillTrain(train.getChannelData(0), GENERATED_SAMPLE_RATE)
@@ -53,6 +52,12 @@ export function createRain(context: AudioContext): AudioBuffer {
   const rain = context.createBuffer(1, 8 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
   fillRain(rain.getChannelData(0), GENERATED_SAMPLE_RATE)
   return rain
+}
+
+export function createMusic(context: BaseAudioContext): AudioBuffer {
+  const music = context.createBuffer(1, MUSIC_DURATION * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
+  fillDemoMusic(music.getChannelData(0), GENERATED_SAMPLE_RATE)
+  return music
 }
 
 /** Original low-level rolling hum; integer-period harmonics make the loop continuous. */
@@ -93,5 +98,19 @@ export function createDoorSound(context: AudioContext): AudioBuffer {
     low = low * 0.96 + samples[i]! * 0.04
     samples[i] = (low * 0.16 + Math.sin(2 * Math.PI * 170 * t) * 0.006) * Math.sin(Math.PI * t / 0.7) ** 2
   }
+  return buffer
+}
+
+export function createNoise(context: BaseAudioContext, kind: 'white' | 'pink'): AudioBuffer {
+  const buffer = context.createBuffer(1, 16 * GENERATED_SAMPLE_RATE, GENERATED_SAMPLE_RATE)
+  const samples = buffer.getChannelData(0)
+  if (kind === 'pink') fillPinkNoise(samples); else fillWhiteNoise(samples)
+  const seam = Math.floor(GENERATED_SAMPLE_RATE * 0.12)
+  for (let i = 0; i < samples.length; i++) samples[i] = samples[i]! * 0.12
+  for (let i = 0; i < seam; i++) {
+    const end = samples.length - seam + i, mix = i / seam
+    samples[end] = samples[end]! * (1 - mix) + samples[i]! * mix
+  }
+  samples[samples.length - 1] = samples[seam - 1]!
   return buffer
 }

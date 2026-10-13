@@ -1,0 +1,51 @@
+import { afterEach, expect, it, vi } from 'vitest'
+import { mockAudio } from '../helpers/audio'
+import { CATALOG } from '../../src/audio/catalog'
+
+afterEach(() => vi.useRealTimers())
+it('replaces only music, releases the previous buffer, preserves pause/zone/user gains', async () => {
+  const { engine, sources, factory, advance } = mockAudio()
+  await engine.startFromGesture(); advance(5); engine.pause(); engine.setVolume('music', 0.2)
+  for (const track of [CATALOG[1]!, CATALOG[2]!, CATALOG[0]!]) engine.selectTrack(track)
+  expect(factory).toHaveBeenCalledOnce()
+  expect(engine.getSnapshot()).toMatchObject({ status: 'paused', zone: 'outside', musicVolume: 0.2 })
+  expect(engine.getDiagnostics()).toMatchObject({ musicSources: 1, musicGain: 0, sourceBuilds: 1, elapsed: 0 })
+  expect(sources[0]!.stop).toHaveBeenCalledOnce(); expect(sources[0]!.buffer).toBeNull()
+  expect(sources[1]!.stop).not.toHaveBeenCalled(); expect(sources[2]!.stop).not.toHaveBeenCalled()
+  await engine.startFromGesture(); advance(4); engine.setWorldZone('inside'); advance(1)
+  expect(engine.getPlaybackSeconds()).toBe(5); expect(engine.getDiagnostics().musicGain).toBe(1)
+})
+it('enforces sleep eligibility at the engine boundary as well as recommendation', async () => {
+  const { engine, advance } = mockAudio()
+  engine.setModeSettings({ mode: 'sleep', mood: 'calm', doNotDisturb: false })
+  expect(() => engine.selectTrack(CATALOG[0]!)).toThrow()
+  engine.selectTrack(CATALOG[2]!); await engine.startFromGesture(); advance(1)
+  expect(engine.getDiagnostics().policyGain).toBe(1)
+  engine.selectTrack(null); expect(engine.getDiagnostics().musicSources).toBe(0)
+})
+it('natural imported-track completion fires once; replacements do not fire completion', async () => {
+  const { engine, sources } = mockAudio(), end = vi.fn()
+  await engine.startFromGesture(); engine.setOnMusicEnded(end)
+  engine.selectTrack({ ...CATALOG[0]!, source: 'imported' }, { duration: 4 } as AudioBuffer)
+  expect(sources.at(-1)!.loop).toBe(false)
+  sources.at(-1)!.onended?.(); expect(end).toHaveBeenCalledOnce(); expect(engine.getDiagnostics().musicSources).toBe(0)
+  engine.selectTrack(CATALOG[1]!); engine.selectTrack(CATALOG[2]!)
+  expect(end).toHaveBeenCalledOnce()
+})
+it('music expiry survives track/mode/zone changes and never overwrites user volume', async () => {
+  const { engine, advance } = mockAudio()
+  await engine.startFromGesture(); engine.finishTimer('music'); advance(2)
+  engine.selectTrack(CATALOG[2]!); engine.setWorldZone('inside'); engine.setModeSettings({ mode: 'focus', mood: 'calm', doNotDisturb: false }); advance(2)
+  expect(engine.getDiagnostics().policyGain).toBe(0); expect(engine.getSnapshot().musicVolume).toBe(0.55)
+  engine.enableMusic(); advance(1); expect(engine.getDiagnostics().policyGain).toBe(1)
+})
+it('all-sound expiry fades then suspends, and a subsequent gesture cancels the stale suspension', async () => {
+  vi.useFakeTimers()
+  const { engine, context } = mockAudio()
+  await engine.startFromGesture(); engine.finishTimer('all')
+  expect(context.suspend).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(1600); expect(context.suspend).toHaveBeenCalledOnce()
+  await engine.startFromGesture(); engine.finishTimer('all'); await engine.startFromGesture()
+  await vi.advanceTimersByTimeAsync(1600); expect(context.suspend).toHaveBeenCalledOnce()
+  engine.pauseForBackground(); engine.finishTimer('all'); expect(engine.getSnapshot().status).toBe('paused')
+})

@@ -218,3 +218,15 @@ App 主入口 → TrainDemoPage → LiquidStatus + TrainDemoScene。M1 DebugPage
 FrameOutput 使用 R3F 正优先级接管自动绘制，每帧更新完成后调用一次 gl.render，再同步调用 glassFrame。LiquidStatus 以复用的局部 2D canvas 裁片（含 2px frost 采样余量）交给官方 createGlassRenderer。没有 preserveDrawingBuffer、截图轮询、另一个 Three 场景或全屏后处理。DOM 负责原生可访问按钮与 Pointer Events，官方 spring 直接更新 DOM 和镜片参数，不逐帧 setState。
 
 选择时两个图形 context，离开后仅 Three；取消所有监听、计时、spring、observer 并释放玻璃 GL 资源。AudioEngine 仍为模块单例，选择 UI 生命周期不暂停/重启声音。确认时手势解锁音频、启动原导演器、串行保存兼容设置。当前证据与限制见 M2_REWORK_REPORT。
+
+## M3 实际落地（2026-10-14）
+
+当前主入口仍为 `App -> TrainDemoPage -> TrainDemoScene`，播放器从站内「声音」打开。`player.ts` 持有唯一 PlayerController；根应用生命周期只负责装/卸轮询与可见事件，播放器的挂载/关闭不拥有计时或音源。`SleepTimer` 使用绝对 expiresAt、先清状态再到期回调。
+
+数据流：`已确认七状态 -> 原 ModeSettings -> 硬过滤/评分/近期去重 -> PlayerController.select -> AudioEngine.selectTrack`；导入 `File -> 校验/时长探测/解码 -> tracks 事务提交 -> 曲库元数据`。异步选择按版本号丢弃迟到结果；失败回退环境声。导入临时 URL 在成功/失败/超时均释放；只保留当前 PCM，不建立整库 PCM 缓存。
+
+数据库 `soundscape-db` version 2，原 settings store 和 mode key 保留；新 stores 为 tracks（内容哈希 ID、白名单 Track 与 Blob）和 feedback（UUID、trackId、kind、at）。原生事务完成后才发布写入成功；出错/超时不清库。M4 如接 Dexie 须兼容此结构。没有 sessions、统计、备份或聊天数据。
+
+AudioEngine 仍唯一。music -> musicZone -> musicMode（适用性/定时关闭）-> musicUser -> master；天气/列车/门声最终汇入环境用户增益。切歌替换主源，不重新建图，不改 zone/用户增益或恢复暂停。导入曲目自然结束触发下一曲，原创 Demo 噪音/旋律循环。到期关闭音乐不覆写用户音量，全部淡出使用 master 包络后 suspend；恢复手势使旧延迟暂停失效。
+
+播放器采用原生 dialog/折叠 details/表单；PlayerGlass 从场景当帧裁片用原样官方 renderer 折射，面板卸载销毁独立的小 WebGL context。关闭按钮在滚动区域之外，焦点约束涵盖 select、summary 与可见控件。文档前半的 Dexie/Zustand/Motion 等仍为规划，不代表本轮依赖变更。完整接口、限制和验证见 M3_REPORT/TEST_PLAN。

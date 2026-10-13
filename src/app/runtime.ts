@@ -1,4 +1,5 @@
 import { audioEngine } from '../audio/engine'
+import { attachPlayerLifecycle, player } from '../audio/player'
 import { StationSimulation } from '../world/StationSimulation'
 import { JourneyController } from './JourneyController'
 import { accessSettings } from '../db/settings'
@@ -36,6 +37,7 @@ export function loadSettings(): Promise<void> {
 }
 export function confirmSettings(settings: ModeSettings): Promise<void> {
   if (!journey.confirmModes(settings)) return Promise.resolve()
+  player.beginSession(settings)
   const write = saveQueue.catch(() => {}).then(() => accessSettings('write', settings)).then(() => {})
   saveQueue = write
   return write
@@ -44,11 +46,13 @@ export function confirmSettings(settings: ModeSettings): Promise<void> {
 if (import.meta.hot) import.meta.hot.dispose(unsubscribeJourney)
 
 export function attachPageLifecycle(): () => void {
+  const detachPlayer = attachPlayerLifecycle()
   const hide = () => audioEngine.pauseForBackground()
-  const visibility = () => { if (document.hidden) hide() }
+  const visibility = () => { player.timer.tick(); if (document.hidden) hide() }
   document.addEventListener('visibilitychange', visibility)
   window.addEventListener('pagehide', hide)
   return () => {
+    detachPlayer()
     document.removeEventListener('visibilitychange', visibility)
     window.removeEventListener('pagehide', hide)
   }

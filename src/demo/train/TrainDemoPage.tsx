@@ -51,6 +51,6 @@ export default function TrainDemoPage() {
       <p>Demo · 程序化场景与原创音景 · 日文广播待接入</p>
     </section>}
     <div className={selecting ? 'sr-only' : 'train-notices'} role="status">{warning}{['error', 'unsupported', 'background', 'interrupted'].includes(sound.status) && sound.message}</div>
-    {soundOpen && <GlassDialog labelId="audio-heading" onClose={() => setSoundOpen(false)} className="sound-dialog"><AudioControls /></GlassDialog>}
+    {soundOpen && <GlassDialog labelId="audio-heading" onClose={() => setSoundOpen(false)} className="sound-dialog player-dialog" frameRef={glassFrame}><AudioControls /></GlassDialog>}
   </main>
 }

@@ -22,10 +22,10 @@ export function canUseSocial(settings: ModeSettings, radarEnabled: boolean): boo
   return (settings.mode === 'relax' || settings.mode === 'free') && settings.doNotDisturb === false && radarEnabled === true
 }
 
-// M2 only has this original instrumental demo. Full ranking/library belongs to M3.
+// The default keeps the original demo contract; the player supplies track eligibility.
 const DEMO_ELIGIBLE_MODES: readonly SceneMode[] = ['focus', 'relax', 'free']
-export function musicPolicy(settings: ModeSettings) {
-  const eligible = DEMO_ELIGIBLE_MODES.includes(settings.mode)
+export function musicPolicy(settings: ModeSettings, eligibleModes: readonly SceneMode[] = DEMO_ELIGIBLE_MODES) {
+  const eligible = eligibleModes.includes(settings.mode)
   const moodLevel = settings.mood === 'tired' || settings.mood === 'anxious' ? 0.65 : 1
   return { eligible, level: eligible ? moodLevel : 0, label: eligible ? '雨灯 · 原创器乐 Demo' : '纯雨声 · 暂无睡眠适用曲目' }
 }
