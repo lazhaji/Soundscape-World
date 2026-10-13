@@ -216,7 +216,9 @@ function FrameOutput({ onFrame }: { onFrame: (source: HTMLCanvasElement) => void
 }
 
 export default function TrainDemoScene(props: { onFade: (opacity: number) => void; onReady: () => void; onFailure: () => void; onFrame: (source: HTMLCanvasElement) => void }) {
-  const visible = usePageVisible(), reduced = useReducedMotion()
+  const visible = usePageVisible(), systemReduced = useReducedMotion()
+  // Explicit preview opt-in preserves the system preference on the ordinary entry point.
+  const reduced = systemReduced && new URLSearchParams(window.location.search).get('motion') !== 'full'
   useEffect(() => { if (!visible) audioEngine.pauseForBackground() }, [visible])
   return <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]} frameloop={visible ? 'always' : 'never'} camera={{ position: CABIN_SHOT.eye, fov: CABIN_SHOT.fov, near: 0.04, far: 180 }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
     <World {...props} reduced={reduced} />

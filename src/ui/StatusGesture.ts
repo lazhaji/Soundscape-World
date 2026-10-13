@@ -8,30 +8,31 @@ export class StatusGesture {
   phase: GesturePhase = 'Idle'
   drag = 0
   private origin: 'Idle' | 'Selected' = 'Idle'
-  private pointer: { id: number; x: number; y: number } | null = null
+  private pointer: { id: number; x: number; y: number; draggable: boolean } | null = null
   constructor(public choice: StatusChoice) {}
 
-  begin(id: number, x: number, y: number) {
+  begin(id: number, x: number, y: number, draggable = false) {
     if (this.pointer || (this.phase !== 'Idle' && this.phase !== 'Selected')) return false
     this.origin = this.phase
-    this.pointer = { id, x, y }
+    this.pointer = { id, x, y, draggable }
     this.phase = 'Pressing'
     return true
   }
   hold() {
     if (this.phase === 'Pressing' && this.pointer) { this.phase = 'Expanded'; this.drag = 0 }
   }
-  move(id: number, x: number, y: number, width: number) {
+  move(id: number, x: number, y: number, travel: number) {
     if (this.pointer?.id !== id || this.phase === 'Expanded') return
     const dx = x - this.pointer.x, dy = y - this.pointer.y
-    if (Math.abs(dy) > 44 || dx > 28) { this.cancel(); return }
-    if (this.origin === 'Selected' && dx < -8) this.phase = 'Dragging'
-    else if (this.origin === 'Idle' && Math.abs(dx) > 10) { this.cancel(); return }
-    if (this.phase === 'Dragging') this.drag = Math.min(width * 0.52, Math.max(0, -dx))
+    if (Math.abs(dy) > 44 || dx < -28) { this.cancel(); return }
+    if (this.origin === 'Selected' && this.pointer.draggable) {
+      if (dx > 8) this.phase = 'Dragging'
+    } else if (Math.abs(dx) > 10) { this.cancel(); return }
+    if (this.phase === 'Dragging') this.drag = Math.min(Math.max(0, travel), Math.max(0, dx))
   }
-  release(id: number, width: number) {
+  release(id: number, travel: number) {
     if (this.pointer?.id !== id) return false
-    const confirmed = this.phase === 'Dragging' && this.drag >= width * 0.4
+    const confirmed = this.phase === 'Dragging' && travel > 0 && this.drag >= travel * 0.85
     this.pointer = null
     if (confirmed) this.phase = 'Confirmed'
     else if (this.phase !== 'Expanded') { this.phase = this.origin; this.drag = 0 }

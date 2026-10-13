@@ -20,26 +20,37 @@ export function LiquidStatus({ initial, frameRef, onSelect, onConfirm }: { initi
   useEffect(() => {
     const host = anchor.current!, body = surface.current!, output = canvas.current!
     const trigger = body.querySelector<HTMLButtonElement>('.status-trigger')!
+    const thumb = body.querySelector<HTMLElement>('.status-thumb')!
     const source = document.createElement('canvas'), context = source.getContext('2d', { alpha: false })!
     let renderer: ReturnType<typeof createGlassRenderer>
     try { renderer = createGlassRenderer(output, source, { pixelRatio: 1 }) }
     catch { const failure = requestAnimationFrame(() => setFailed(true)); return () => cancelAnimationFrame(failure) }
-    renderer.setLenses([{ width: 260, height: 88, radius: 32, refraction: 14, bezel: 0.8, curvature: 3, chroma: 0.12, specular: 0.6, specularWidth: 1.5 }])
+    renderer.setLenses([
+      { width: 260, height: 88, radius: 32, refraction: 14, bezel: 0.8, curvature: 3, chroma: 0.12, specular: 0.6, specularWidth: 1.5 },
+      { x: 16, y: 16, width: 56, height: 56, radius: 28, refraction: 10, bezel: 0.9, curvature: 3, chroma: 0.2, specular: 0.7, specularWidth: 1.5 },
+    ])
     let expand = 0, press = 0, drag = 0, velocity = 0, timer = 0, keyboard = false, disposed = false
     let pressedOption: string | undefined
     let rect = { x: 0, y: 0, width: 260, height: 88, radius: 32 }
+    let thumbRect = { x: 16, y: 16, width: 56, height: 56, radius: 28 }
+    const travel = () => Math.max(0, host.clientWidth - 32 - 56)
     const reduced = matchMedia('(prefers-reduced-motion: reduce)')
     const drawShape = () => {
       const at = host.getBoundingClientRect(), base = host.clientWidth
       const stretch = reduced.matches ? 0 : Math.min(12, Math.abs(velocity) * 0.012)
-      const width = base + (reduced.matches ? 0 : press * 10 + stretch)
+      const width = base
       const maxHeight = Math.min(424, innerHeight - (innerHeight - at.bottom) - 16)
-      const height = 88 + (maxHeight - 88) * Math.max(0, expand) - (reduced.matches ? 0 : press * 4 + stretch * 0.2)
+      const height = 88 + (maxHeight - 88) * Math.max(0, expand)
       const radius = 32 + Math.min(1, Math.max(0, expand)) * 4
-      const x = -drag - (width - base) / 2
-      Object.assign(body.style, { width: `${width}px`, height: `${height}px`, borderRadius: `${radius}px`, transform: `translateX(${x}px)` })
+      Object.assign(body.style, { width: `${width}px`, height: `${height}px`, borderRadius: `${radius}px` })
       body.style.setProperty('--expand', String(Math.min(1, Math.max(0, expand))))
-      rect = { x: at.left + x, y: at.bottom - height, width, height, radius }
+      rect = { x: at.left, y: at.bottom - height, width, height, radius }
+      const thumbWidth = 56 + (reduced.matches ? 0 : press * 4 + stretch)
+      const thumbHeight = 56 - (reduced.matches ? 0 : press * 3 + stretch * 0.3)
+      const thumbX = Math.min(width - 16 - thumbWidth, Math.max(16, 16 + drag - (thumbWidth - 56) / 2))
+      thumbRect = { x: thumbX, y: (height - thumbHeight) / 2, width: thumbWidth, height: thumbHeight, radius: thumbHeight / 2 }
+      Object.assign(thumb.style, { left: `${thumbX}px`, top: `${thumbRect.y}px`, width: `${thumbWidth}px`, height: `${thumbHeight}px` })
+      body.style.setProperty('--title-opacity', String(Math.min(1, Math.max(0, (Math.abs(thumbX + thumbWidth / 2 - width / 2) - thumbWidth / 2 - 24) / 16))))
     }
     const expansion = createSpring(0, (value) => { expand = value; drawShape() })
     const pressing = createSpring(0, (value) => { press = value; drawShape() })
@@ -57,17 +68,17 @@ export function LiquidStatus({ initial, frameRef, onSelect, onConfirm }: { initi
       keyboardOpen.current = false
       pressedOption = (event.target as Element).closest<HTMLElement>('[data-choice]')?.dataset.choice
       if (event.target !== trigger && !trigger.contains(event.target as Node)) return
-      if (!machine.begin(event.pointerId, event.clientX, event.clientY)) return
+      if (!machine.begin(event.pointerId, event.clientX, event.clientY, thumb.contains(event.target as Node))) return
       event.preventDefault(); trigger.focus({ preventScroll: true }); trigger.setPointerCapture(event.pointerId)
       publish()
       timer = window.setTimeout(() => { machine.hold(); publish() }, HOLD_MS)
     }
     const move = (event: PointerEvent) => {
-      machine.move(event.pointerId, event.clientX, event.clientY, host.clientWidth); publish()
+      machine.move(event.pointerId, event.clientX, event.clientY, travel()); publish()
     }
     const up = (event: PointerEvent) => {
       clearTimeout(timer)
-      const confirmed = machine.release(event.pointerId, host.clientWidth)
+      const confirmed = machine.release(event.pointerId, travel())
       publish()
       if (trigger.hasPointerCapture(event.pointerId)) trigger.releasePointerCapture(event.pointerId)
       if (confirmed) onConfirm(machine.choice)
@@ -91,15 +102,15 @@ export function LiquidStatus({ initial, frameRef, onSelect, onConfirm }: { initi
         keyboardOpen.current = true
         if (machine.begin(-1, 0, 0)) { keyboard = true; publish(); timer = window.setTimeout(() => { machine.hold(); publish() }, HOLD_MS) }
       }
-      if (event.key === 'ArrowLeft' && machine.phase === 'Selected') {
-        event.preventDefault(); keyboard = true; machine.begin(-2, host.clientWidth, 0); publish()
-        timer = window.setTimeout(() => { machine.move(-2, host.clientWidth * 0.58, 0, host.clientWidth); publish() }, HOLD_MS)
+      if (event.key === 'ArrowRight' && machine.phase === 'Selected') {
+        event.preventDefault(); keyboard = true; machine.begin(-2, 0, 0, true); publish()
+        timer = window.setTimeout(() => { machine.move(-2, travel(), 0, travel()); publish() }, HOLD_MS)
       }
     }
     const keyup = (event: KeyboardEvent) => {
-      if (!keyboard || ![' ', 'Enter', 'ArrowLeft'].includes(event.key)) return
+      if (!keyboard || ![' ', 'Enter', 'ArrowRight'].includes(event.key)) return
       event.preventDefault(); clearTimeout(timer); keyboard = false
-      const confirmed = machine.release(event.key === 'ArrowLeft' ? -2 : -1, host.clientWidth); publish()
+      const confirmed = machine.release(event.key === 'ArrowRight' ? -2 : -1, travel()); publish()
       if (confirmed) onConfirm(machine.choice)
     }
     const click = (event: MouseEvent) => {
@@ -123,6 +134,7 @@ export function LiquidStatus({ initial, frameRef, onSelect, onConfirm }: { initi
       // Called synchronously after Three renders: no stale/cleared drawing buffer, no preserveDrawingBuffer.
       context.drawImage(scene, (rect.x - 8) * scaleX, (rect.y - 8) * scaleY, (rect.width + 16) * scaleX, (rect.height + 16) * scaleY, -8, -8, width + 16, height + 16)
       renderer.updateLens(0, { x: 0, y: 0, width: rect.width, height: rect.height, radius: rect.radius, refraction: 14 + 10 * amount, bezel: 0.8 - amount * 0.5, curvature: 3 + amount, chroma: 0.12 - amount * 0.02, specular: 0.6 - amount * 0.1, specularWidth: 1.5 + amount * 0.5 })
+      renderer.updateLens(1, { ...thumbRect, x: machine.phase === 'Expanded' ? -100 : thumbRect.x })
       renderer.render()
       body.dataset.optics = 'webgl'
     }
@@ -156,15 +168,15 @@ export function LiquidStatus({ initial, frameRef, onSelect, onConfirm }: { initi
     <div ref={surface} className="status-surface" data-state={view.phase}>
       <canvas key={attempt} ref={canvas} className="status-glass" aria-hidden="true" />
       <div className="status-tint" aria-hidden="true" />
-      <button className="status-trigger" aria-label={`${STATUSES[view.choice]}，长按选择状态；选择后向左滑动确认`} aria-expanded={view.phase === 'Expanded'} aria-controls="status-options" aria-describedby="status-help" tabIndex={view.phase === 'Expanded' ? -1 : 0}>
-        <StatusSymbol choice={view.choice} /><span>{STATUSES[view.choice]}</span>
+      <button className="status-trigger" aria-label={`${STATUSES[view.choice]}，长按选择状态；选择后将左侧圆形图标向右拖动确认`} aria-expanded={view.phase === 'Expanded'} aria-controls="status-options" aria-describedby="status-help" tabIndex={view.phase === 'Expanded' ? -1 : 0}>
+        <span className="status-title">{STATUSES[view.choice]}</span><span className="status-thumb" aria-hidden="true"><StatusSymbol choice={view.choice} /></span>
       </button>
       <div id="status-options" role="group" aria-label="状态" className="status-options" hidden={view.phase !== 'Expanded'}>
         {choices.map((choice) => <button key={choice} data-choice={choice} aria-pressed={view.choice === choice}><StatusSymbol choice={choice} /><span>{STATUSES[choice]}</span></button>)}
       </div>
     </div>
-    <span id="status-help" className="sr-only">长按空格或回车展开，Tab 选择状态。选好后按住左方向键再松开确认；Escape 取消。</span>
-    <span className="sr-only" role="status">{view.phase === 'Selected' ? `已选择${STATUSES[view.choice]}，向左滑动确认` : ''}</span>
+    <span id="status-help" className="sr-only">长按空格或回车展开，Tab 选择状态。选好后按住右方向键再松开确认；Escape 取消。</span>
+    <span className="sr-only" role="status">{view.phase === 'Selected' ? `已选择${STATUSES[view.choice]}，将左侧圆形图标向右拖动确认` : ''}</span>
     {failed && <div className="status-error" role="alert">玻璃渲染未能开启<button onClick={() => { setFailed(false); setAttempt((n) => n + 1) }}>重试</button></div>}
   </div>
 }

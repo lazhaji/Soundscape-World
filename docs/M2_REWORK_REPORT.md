@@ -1,5 +1,7 @@
 # M2 状态控件返工：审计、实现与验收证据
 
+> 最新用户确认已将整体左滑改为圆形图标右拖。当前实现与证据见第8节；第1–7节为本次返工第一版的审计和历史验收记录。
+
 日期：2026-10-13（Asia/Shanghai）。只处理 M2；基线 `main / e784290`，开工工作区干净。用户已驳回旧交付。本报告记录可复核的实现与测试，不替代用户视觉验收或真机验收。
 
 入口：开发预览 http://127.0.0.1:4181/ ，生产预览 http://127.0.0.1:4182/ 。`#/demo/train` 与主入口使用同一 M2 页面；M1 调试入口仍是 `#/debug/m1`。
@@ -116,3 +118,27 @@ Playwright CLI（本机缓存）复跑方式：先 `npx --offline --package @pla
 5. M2 业务与所列 Chromium 检查通过，视觉接受度仍由用户验收；不自称 M2 已验收。没有推进 M3–M7，日文广播录音与正式美术仍未实现。
 
 真机后续：在同网段启动局域网 dev 服务，分别用 iPhone Safari/Android Chrome 开启页面；检查 600ms 长按、七项触控、104px 左滑/拖回、来电或后台取消、横竖屏/安全区、减少动态、高对比、完整往返、店内外耳机听感与 10 分钟温度/帧率。记录设备/系统/浏览器及异常，不以桌面模拟代替。
+
+## 8. 当前追加：圆形右拖与动态预览
+
+用户标注“只有左侧图标可以拖动，图标在小圆形中”，并确认由左向右拖动。现为56px圆形手柄、左右各16px边距；长按矩形600ms展开七状态，选择后仅圆形起拖有效；向右达到实际行程85%且松手确认。260px控件的有效行程172px，阈值146.2px。标题与外框不位移；圆形经过标题时标题淡出避让，回弹恢复。反向/标题起拖不会确认，键盘改为右方向键。
+
+官方源码没有修改。`LiquidStatus.tsx` 在原renderer增加第二片圆形镜片并使用同一source，每帧同步跟随圆形；仍只有一个Three画布和一个局部玻璃画布。业务回调、权限、设置、音频引擎和M1不变。
+
+**网站与旧视频不一致的已核实原因**：在实际Codex内置浏览器读取到根入口 `prefers-reduced-motion: reduce=true`、`document.hidden=false`、phase=cruising，且加载的是当前生产文件。`TrainDemoScene.tsx` 原实现将此偏好传给Landscape，速度置零；sampleShot也改为固定镜头。此前录屏浏览器偏好不同。因此不能用该录屏声称内置浏览器也在动态运行。
+
+当前 [完整动态预览](http://127.0.0.1:4182/?motion=full) 仅通过明确URL参数选择完整场景动态；[普通入口](http://127.0.0.1:4182/) 继续尊重系统偏好。没有改操作系统/浏览器设置，没有新增常驻UI。玻璃弹簧继续遵循系统减少动态偏好。该参数不保存到用户业务设置，移除即恢复默认。
+
+**本次修改**：`src/ui/StatusGesture.ts`、`LiquidStatus.tsx`、`liquid-status.css`、`src/demo/train/TrainDemoScene.tsx`、`tests/unit/status.test.ts`；同步HANDOFF、TASKS、PRD、DESIGN_SYSTEM、DECISIONS、M2_REDESIGN_SPEC、TEST_PLAN和本报告。无依赖/lockfile/官方源码/数据库/M1/AudioEngine修改。
+
+**实际验证**：lint、strict typecheck、build通过；14文件68测试通过。Playwright直接测试4182生产包，桌面1280×800（no-preference）和390×844原生CDP触控（reduce=true + motion=full），七项选择、标题不能拖、外框固定、短拖回位、越阈值后拖回、反向、纵向、touchCancel、外部取消、有效右拖、完整到站和返程通过，正常pageerror=0。减少动态根入口两次窗景截图相同，完整动态入口不同；键盘短右/左键不确认、Escape取消、长右确认、Tab焦点循环，以及320×740/844×390/1280×800尺寸和forced-colors通过。仍保留Three大分块与Clock提示。
+
+| 当前证据 | 文件 |
+| --- | --- |
+| 初始圆形控件 | [手机](../output/playwright/m2-right-idle-mobile.png)、[桌面](../output/playwright/m2-right-idle-desktop.png) |
+| 展开七状态 | [手机](../output/playwright/m2-right-expanded-mobile.png)、[桌面](../output/playwright/m2-right-expanded-desktop.png) |
+| 右拖中间位置 | [手机](../output/playwright/m2-right-drag-mobile.png)、[桌面](../output/playwright/m2-right-drag-desktop.png) |
+| 运镜与到站 | [穿窗过程](../output/playwright/m2-right-camera-mobile.png)、[到站](../output/playwright/m2-right-station-mobile.png) |
+| 实际触摸录屏 | [右拖取消、确认及完整往返](../output/playwright/m2-right-touch-journey.webm) |
+
+脚本`m2-right-check.js`与`m2-right-accessibility.js`沿用第5节CLI复跑方式。最新录屏是reduce=true、motion=full的生产页面，玻璃遵循减少动态，场景完整运镜；无音轨，不能代替听感验收。真实iPhone/Android、跨引擎、长期性能尚未验证；M2仍等待用户验收。
